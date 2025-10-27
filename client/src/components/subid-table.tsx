@@ -1,4 +1,4 @@
-import { Copy, Check, Download, Lock, ExternalLink, Link2, Trash2 } from "lucide-react";
+import { Copy, Check, Download, Lock, ExternalLink, Link2, Trash2, MessageSquare } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -19,11 +19,13 @@ interface SubIdTableProps {
   onCopy: (value: string) => void;
   onExportCSV: () => void;
   onDelete: (id: string) => void;
+  onPostComment: (id: string) => void;
   duplicateSubIds: Set<string>;
   isLoading?: boolean;
+  postingCommentId?: string | null;
 }
 
-export function SubIdTable({ subIds, onCopy, onExportCSV, onDelete, duplicateSubIds, isLoading }: SubIdTableProps) {
+export function SubIdTable({ subIds, onCopy, onExportCSV, onDelete, onPostComment, duplicateSubIds, isLoading, postingCommentId }: SubIdTableProps) {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [selectedSubId, setSelectedSubId] = useState<SubId | null>(null);
   const [isClickUpDialogOpen, setIsClickUpDialogOpen] = useState(false);
@@ -121,6 +123,16 @@ export function SubIdTable({ subIds, onCopy, onExportCSV, onDelete, duplicateSub
                             <Link2 className="h-2.5 w-2.5 mr-1" />
                             {subId.clickupTaskId}
                           </Badge>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => onPostComment(subId.id)}
+                            disabled={postingCommentId === subId.id}
+                            data-testid={`button-comment-${subId.id}`}
+                            className="h-5 w-5"
+                          >
+                            <MessageSquare className="h-3 w-3" />
+                          </Button>
                         </div>
                       )}
                     </div>

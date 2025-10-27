@@ -249,6 +249,27 @@ export default function Dashboard() {
     return subIds.filter(s => s.clickupTaskId && !s.url).length;
   }, [subIds]);
 
+  // Post comment to ClickUp mutation
+  const postCommentMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await apiRequest("POST", `/api/subids/${id}/clickup/comment`);
+      return await res.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Comment Posted",
+        description: "Sub-ID posted to ClickUp task successfully.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Post Failed",
+        description: error.message || "Failed to post comment to ClickUp",
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleAddWebsite = (data: { name: string; formatPattern: string }) => {
     createWebsiteMutation.mutate(data);
   };
@@ -290,6 +311,10 @@ export default function Dashboard() {
   const handleRefreshUrls = () => {
     if (!selectedWebsite) return;
     refreshUrlsMutation.mutate(selectedWebsite.id);
+  };
+
+  const handlePostComment = (id: string) => {
+    postCommentMutation.mutate(id);
   };
 
   const handleExportCSV = () => {
@@ -365,8 +390,10 @@ export default function Dashboard() {
                   onCopy={handleCopy}
                   onExportCSV={handleExportCSV}
                   onDelete={handleDeleteSubId}
+                  onPostComment={handlePostComment}
                   duplicateSubIds={duplicateSubIds}
                   isLoading={isLoadingSubIds}
+                  postingCommentId={postCommentMutation.isPending ? postCommentMutation.variables : null}
                 />
               </div>
             ) : (

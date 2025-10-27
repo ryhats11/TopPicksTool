@@ -379,6 +379,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/subids/:id/clickup/comment", async (req, res) => {
+    try {
+      const apiKey = process.env.CLICKUP_API_KEY;
+      
+      if (!apiKey) {
+        return res.status(500).json({ error: "ClickUp API key not configured" });
+      }
+
+      const subId = await storage.getSubIdById(req.params.id);
+      
+      if (!subId) {
+        return res.status(404).json({ error: "Sub-ID not found" });
+      }
+
+      if (!subId.clickupTaskId) {
+        return res.status(400).json({ error: "Sub-ID is not linked to a ClickUp task" });
+      }
+
+      const commentText = req.body.comment || `Sub-ID: ${subId.value}`;
+
+      console.log(`\n💬 Posting comment to ClickUp task ${subId.clickupTaskId}: "${commentText}"`);
+
+      const response = await fetch(
+        `https://api.clickup.com/api/v2/task/${subId.clickupTaskId}/comment`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': apiKey,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            comment_text: commentText,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.text();
+        console.error(`   ❌ ClickUp API error: ${response.statusText}`, errorData);
+        throw new Error(`ClickUp API error: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      console.log(`   ✅ Comment posted successfully`);
+
+      res.json({
+        success: true,
+        comment: result,
+      });
+    } catch (error: any) {
+      console.error("Error posting ClickUp comment:", error);
+      res.status(500).json({ error: error.message || "Failed to post comment to ClickUp" });
+    }
+  });
+
   app.post("/api/websites/:websiteId/clickup/refresh-urls", async (req, res) => {
     try {
       const apiKey = process.env.CLICKUP_API_KEY;

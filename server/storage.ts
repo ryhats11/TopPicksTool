@@ -19,6 +19,7 @@ export interface IStorage {
   // SubId methods
   getSubIdsByWebsite(websiteId: string): Promise<SubId[]>;
   getAllSubIds(): Promise<SubId[]>;
+  getSubIdById(id: string): Promise<SubId | undefined>;
   createSubId(subId: InsertSubId): Promise<SubId>;
   createSubIdsBulk(subIdList: InsertSubId[]): Promise<SubId[]>;
   deleteSubId(id: string): Promise<void>;
@@ -57,6 +58,11 @@ export class DbStorage implements IStorage {
 
   async getAllSubIds(): Promise<SubId[]> {
     return await db.select().from(subIds);
+  }
+
+  async getSubIdById(id: string): Promise<SubId | undefined> {
+    const [subId] = await db.select().from(subIds).where(eq(subIds.id, id));
+    return subId;
   }
 
   async createSubId(insertSubId: InsertSubId): Promise<SubId> {
