@@ -154,10 +154,11 @@ export function SubIdTable({ subIds, onCopy, onExportCSV, onDelete, onPostCommen
                   </TableCell>
                   <TableCell className="py-4">
                     <Button
-                      variant={subId.clickupTaskId ? "secondary" : "outline"}
+                      variant={subId.clickupTaskId ? "outline" : "outline"}
                       size="sm"
                       onClick={() => handleOpenClickUpDialog(subId)}
                       data-testid={`button-clickup-${subId.id}`}
+                      className={subId.clickupTaskId ? "border-green-600 text-green-600 hover:bg-green-50 dark:hover:bg-green-950" : ""}
                     >
                       <Link2 className="h-3.5 w-3.5 mr-1.5" />
                       {subId.clickupTaskId ? "Linked" : "Link"}
