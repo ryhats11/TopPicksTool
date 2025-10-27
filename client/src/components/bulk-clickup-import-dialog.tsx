@@ -42,13 +42,23 @@ export function BulkClickUpImportDialog({
       queryClient.invalidateQueries({ queryKey: ["/api/websites", websiteId, "subids"] });
       queryClient.invalidateQueries({ queryKey: ["/api/websites"] });
 
-      const urlsPopulated = data.filter((subId: any) => subId.url).length;
+      const { success, urlsPopulated, errors } = data;
+      
+      // Build comprehensive message
+      let description = `Successfully created ${success} Sub-ID${success !== 1 ? 's' : ''} linked to ClickUp tasks.`;
+      
+      if (urlsPopulated > 0) {
+        description += ` ${urlsPopulated} Live URL${urlsPopulated !== 1 ? 's' : ''} auto-populated.`;
+      }
+      
+      if (errors && errors.length > 0) {
+        description += ` (${errors.length} task${errors.length !== 1 ? 's' : ''} could not be fetched from ClickUp API)`;
+      }
       
       toast({
         title: "ClickUp Tasks Imported",
-        description: `Successfully created ${data.length} Sub-ID(s) linked to ClickUp tasks.${
-          urlsPopulated > 0 ? ` ${urlsPopulated} Live URL(s) auto-populated.` : ""
-        }`,
+        description,
+        variant: errors && errors.length > 0 ? "default" : "default",
       });
       
       setTaskIds("");

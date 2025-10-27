@@ -157,15 +157,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const apiKey = process.env.CLICKUP_API_KEY;
       const createdSubIds = [];
+      const errors = [];
 
       // Process each task ID
       for (const taskId of taskIds) {
         if (!taskId || typeof taskId !== 'string') {
           console.warn(`Skipping invalid task ID: ${taskId}`);
+          errors.push({ taskId, error: "Invalid task ID format" });
           continue;
         }
 
         let liveUrl: string | undefined = undefined;
+        let fetchError: string | undefined = undefined;
 
         // Fetch ClickUp task details
         if (apiKey) {
@@ -192,10 +195,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 }
               }
             } else {
+              fetchError = response.statusText;
               console.warn(`Could not fetch ClickUp task ${taskId}: ${response.statusText}`);
             }
-          } catch (fetchError) {
-            console.warn(`Error fetching ClickUp task ${taskId}:`, fetchError);
+          } catch (error) {
+            fetchError = error instanceof Error ? error.message : "Unknown error";
+            console.warn(`Error fetching ClickUp task ${taskId}:`, error);
           }
         }
 
@@ -213,9 +218,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
 
         createdSubIds.push(newSubId);
+        
+        // Track if there was a fetch error
+        if (fetchError) {
+          errors.push({ taskId, error: `ClickUp API: ${fetchError}` });
+        }
       }
 
-      res.json(createdSubIds);
+      res.json({
+        success: createdSubIds.length,
+        created: createdSubIds,
+        errors: errors,
+        urlsPopulated: createdSubIds.filter(s => s.url).length,
+      });
     } catch (error: any) {
       console.error("Error in bulk ClickUp import:", error);
       res.status(500).json({ error: error.message || "Failed to import ClickUp tasks" });
