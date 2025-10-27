@@ -56,6 +56,8 @@ export default function Dashboard() {
 
   const generateSubId = (pattern: string): string => {
     let result = pattern;
+    const now = new Date();
+    
     result = result.replace(/\{random(\d+)digits\}/g, (_, num) =>
       Math.floor(Math.random() * Math.pow(10, parseInt(num)))
         .toString()
@@ -66,14 +68,25 @@ export default function Dashboard() {
         String.fromCharCode(65 + Math.floor(Math.random() * 26))
       ).join("")
     );
+    result = result.replace(/\{rand(\d+)chars\}/g, (_, num) =>
+      Array.from({ length: parseInt(num) }, () =>
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789".charAt(Math.floor(Math.random() * 36))
+      ).join("")
+    );
     result = result.replace(/\{timestamp\}/g, Date.now().toString());
+    result = result.replace(/\{date\}/g, 
+      `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}`
+    );
+    result = result.replace(/\{year\}/g, now.getFullYear().toString());
+    result = result.replace(/\{month\}/g, String(now.getMonth() + 1).padStart(2, "0"));
+    result = result.replace(/\{day\}/g, String(now.getDate()).padStart(2, "0"));
     result = result.replace(
       /\{uuidSegment\}/g,
       Math.random().toString(36).substring(2, 10).toUpperCase()
     );
-    result = result.replace(/\{rand(\d+)chars\}/g, (_, num) =>
+    result = result.replace(/\{hex(\d+)\}/g, (_, num) =>
       Array.from({ length: parseInt(num) }, () =>
-        Math.random().toString(36).charAt(2).toUpperCase()
+        Math.floor(Math.random() * 16).toString(16).toUpperCase()
       ).join("")
     );
     return result;
