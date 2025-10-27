@@ -379,6 +379,89 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/websites/:websiteId/clickup/refresh-urls", async (req, res) => {
+    try {
+      const apiKey = process.env.CLICKUP_API_KEY;
+      
+      if (!apiKey) {
+        return res.status(500).json({ error: "ClickUp API key not configured" });
+      }
+
+      const websiteId = req.params.websiteId;
+      
+      // Get all Sub-IDs for this website that have ClickUp tasks but no URL
+      const allSubIds = await storage.getSubIdsByWebsite(websiteId);
+      const subIdsWithoutUrl = allSubIds.filter(s => s.clickupTaskId && !s.url);
+      
+      if (subIdsWithoutUrl.length === 0) {
+        return res.json({ updated: 0, message: "No Sub-IDs with missing URLs" });
+      }
+
+      console.log(`\n🔄 Refreshing URLs for ${subIdsWithoutUrl.length} Sub-ID(s) with ClickUp tasks...`);
+      
+      const updated: any[] = [];
+      const errors: any[] = [];
+
+      for (const subId of subIdsWithoutUrl) {
+        try {
+          const response = await fetch(`https://api.clickup.com/api/v2/task/${subId.clickupTaskId}`, {
+            headers: {
+              'Authorization': apiKey,
+              'Content-Type': 'application/json',
+            },
+          });
+
+          if (response.ok) {
+            const taskData = await response.json();
+            
+            // Look for "*Live URL" or "Live URL" custom field
+            if (taskData.custom_fields && Array.isArray(taskData.custom_fields)) {
+              const liveUrlField = taskData.custom_fields.find(
+                (field: any) => {
+                  const fieldName = (field.name || '').toLowerCase();
+                  return (fieldName === '*live url' || fieldName === 'live url') && field.value;
+                }
+              );
+              
+              if (liveUrlField && liveUrlField.value) {
+                const liveUrl = liveUrlField.value;
+                console.log(`   ✅ Found URL for task ${subId.clickupTaskId}: ${liveUrl}`);
+                
+                // Update the Sub-ID with the URL
+                const updatedSubId = await storage.updateSubIdClickupTask(
+                  subId.id,
+                  subId.clickupTaskId,
+                  liveUrl
+                );
+                updated.push(updatedSubId);
+              } else {
+                console.log(`   ⚠️  Task ${subId.clickupTaskId} still has no URL`);
+              }
+            }
+          } else {
+            console.warn(`   ❌ Could not fetch task ${subId.clickupTaskId}: ${response.statusText}`);
+            errors.push({ taskId: subId.clickupTaskId, error: response.statusText });
+          }
+        } catch (error: any) {
+          console.error(`   Error fetching task ${subId.clickupTaskId}:`, error);
+          errors.push({ taskId: subId.clickupTaskId, error: error.message });
+        }
+      }
+
+      console.log(`\n✅ URL Refresh Complete: ${updated.length} URLs found and updated`);
+
+      res.json({
+        updated: updated.length,
+        checked: subIdsWithoutUrl.length,
+        updatedSubIds: updated,
+        errors: errors.length > 0 ? errors : undefined,
+      });
+    } catch (error: any) {
+      console.error("Error refreshing URLs:", error);
+      res.status(500).json({ error: error.message || "Failed to refresh URLs" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

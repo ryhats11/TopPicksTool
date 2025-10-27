@@ -1,4 +1,4 @@
-import { Plus, Trash2, Upload, FileUp } from "lucide-react";
+import { Plus, Trash2, Upload, FileUp, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
@@ -6,20 +6,26 @@ interface WebsiteHeaderProps {
   websiteName: string;
   formatPattern: string;
   subIdCount: number;
+  missingUrlCount: number;
   onGenerateId: () => void;
   onDeleteWebsite: () => void;
   onBulkImport: () => void;
   onBulkClickUpImport: () => void;
+  onRefreshUrls: () => void;
+  isRefreshing?: boolean;
 }
 
 export function WebsiteHeader({
   websiteName,
   formatPattern,
   subIdCount,
+  missingUrlCount,
   onGenerateId,
   onDeleteWebsite,
   onBulkImport,
   onBulkClickUpImport,
+  onRefreshUrls,
+  isRefreshing = false,
 }: WebsiteHeaderProps) {
   return (
     <div className="space-y-4">
@@ -44,6 +50,17 @@ export function WebsiteHeader({
           >
             <Trash2 className="h-4 w-4" />
           </Button>
+          {missingUrlCount > 0 && (
+            <Button
+              variant="outline"
+              onClick={onRefreshUrls}
+              disabled={isRefreshing}
+              data-testid="button-refresh-urls"
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+              Refresh URLs ({missingUrlCount})
+            </Button>
+          )}
           <Button
             variant="outline"
             onClick={onBulkImport}

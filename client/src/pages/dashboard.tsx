@@ -211,6 +211,44 @@ export default function Dashboard() {
     },
   });
 
+  // Refresh URLs mutation
+  const refreshUrlsMutation = useMutation({
+    mutationFn: async (websiteId: string) => {
+      const res = await apiRequest("POST", `/api/websites/${websiteId}/clickup/refresh-urls`);
+      return await res.json();
+    },
+    onSuccess: (data: { updated: number; checked: number; errors?: any[] }) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/websites", selectedWebsiteId, "subids"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/websites"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/subids"] });
+      
+      if (data.updated > 0) {
+        toast({
+          title: "URLs Updated",
+          description: `${data.updated} of ${data.checked} URL${data.updated !== 1 ? 's' : ''} found and updated from ClickUp.`,
+        });
+      } else {
+        toast({
+          title: "No New URLs",
+          description: `Checked ${data.checked} task${data.checked !== 1 ? 's' : ''}, but no URLs were found in ClickUp.`,
+          variant: "default",
+        });
+      }
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Refresh Failed",
+        description: error.message || "Failed to refresh URLs from ClickUp",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Calculate missing URL count
+  const missingUrlCount = useMemo(() => {
+    return subIds.filter(s => s.clickupTaskId && !s.url).length;
+  }, [subIds]);
+
   const handleAddWebsite = (data: { name: string; formatPattern: string }) => {
     createWebsiteMutation.mutate(data);
   };
@@ -247,6 +285,11 @@ export default function Dashboard() {
 
   const handleDeleteSubId = (id: string) => {
     deleteSubIdMutation.mutate(id);
+  };
+
+  const handleRefreshUrls = () => {
+    if (!selectedWebsite) return;
+    refreshUrlsMutation.mutate(selectedWebsite.id);
   };
 
   const handleExportCSV = () => {
@@ -309,10 +352,13 @@ export default function Dashboard() {
                   websiteName={selectedWebsite.name}
                   formatPattern={selectedWebsite.formatPattern}
                   subIdCount={selectedWebsite.subIdCount}
+                  missingUrlCount={missingUrlCount}
                   onGenerateId={handleGenerateId}
                   onDeleteWebsite={handleDeleteWebsite}
                   onBulkImport={() => setIsBulkImportOpen(true)}
                   onBulkClickUpImport={() => setIsBulkClickUpImportOpen(true)}
+                  onRefreshUrls={handleRefreshUrls}
+                  isRefreshing={refreshUrlsMutation.isPending}
                 />
                 <SubIdTable
                   subIds={subIds}
