@@ -22,7 +22,7 @@ export interface IStorage {
   createSubId(subId: InsertSubId): Promise<SubId>;
   createSubIdsBulk(subIdList: InsertSubId[]): Promise<SubId[]>;
   deleteSubId(id: string): Promise<void>;
-  updateSubIdClickupTask(id: string, clickupTaskId: string | null): Promise<SubId>;
+  updateSubIdClickupTask(id: string, clickupTaskId: string | null, url?: string | null): Promise<SubId>;
 }
 
 export class DbStorage implements IStorage {
@@ -87,10 +87,17 @@ export class DbStorage implements IStorage {
     await db.delete(subIds).where(eq(subIds.id, id));
   }
 
-  async updateSubIdClickupTask(id: string, clickupTaskId: string | null): Promise<SubId> {
+  async updateSubIdClickupTask(id: string, clickupTaskId: string | null, url?: string | null): Promise<SubId> {
+    const updateData: { clickupTaskId: string | null; url?: string | null } = { clickupTaskId };
+    
+    // Only update URL if explicitly provided
+    if (url !== undefined) {
+      updateData.url = url;
+    }
+    
     const [updatedSubId] = await db
       .update(subIds)
-      .set({ clickupTaskId })
+      .set(updateData)
       .where(eq(subIds.id, id))
       .returning();
     

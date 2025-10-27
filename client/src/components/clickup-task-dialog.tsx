@@ -56,14 +56,20 @@ export function ClickUpTaskDialog({ subId, open, onOpenChange }: ClickUpTaskDial
 
   const linkTaskMutation = useMutation({
     mutationFn: async (clickupTaskId: string) => {
-      return await apiRequest("PATCH", `/api/subids/${subId.id}/clickup`, { clickupTaskId });
+      const response = await apiRequest("PATCH", `/api/subids/${subId.id}/clickup`, { clickupTaskId });
+      return await response.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/subids"] });
       queryClient.invalidateQueries({ queryKey: [`/api/websites/${subId.websiteId}/subids`] });
+      
+      const urlWasPopulated = data.url && !subId.url;
+      
       toast({
         title: "ClickUp Task Linked",
-        description: "The task has been successfully linked to this Sub-ID.",
+        description: urlWasPopulated 
+          ? "Task linked successfully! Live URL from ClickUp has been auto-populated."
+          : "The task has been successfully linked to this Sub-ID.",
       });
       onOpenChange(false);
     },
@@ -123,7 +129,7 @@ export function ClickUpTaskDialog({ subId, open, onOpenChange }: ClickUpTaskDial
             Link ClickUp Task
           </DialogTitle>
           <DialogDescription>
-            Connect this Sub-ID/URL pair to a ClickUp task for project tracking.
+            Connect this Sub-ID to a ClickUp task. If the task has a "Live URL" custom field, it will automatically populate the URL.
           </DialogDescription>
         </DialogHeader>
 

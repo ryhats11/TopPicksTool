@@ -131,8 +131,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!clickupTaskId || typeof clickupTaskId !== 'string') {
         return res.status(400).json({ error: "Invalid ClickUp task ID" });
       }
+
+      const apiKey = process.env.CLICKUP_API_KEY;
+      let liveUrl: string | undefined = undefined;
+
+      // Fetch ClickUp task to get custom fields
+      if (apiKey) {
+        try {
+          const response = await fetch(`https://api.clickup.com/api/v2/task/${clickupTaskId}`, {
+            headers: {
+              'Authorization': apiKey,
+              'Content-Type': 'application/json',
+            },
+          });
+
+          if (response.ok) {
+            const taskData = await response.json();
+            
+            // Look for "Live URL" custom field
+            if (taskData.custom_fields && Array.isArray(taskData.custom_fields)) {
+              const liveUrlField = taskData.custom_fields.find(
+                (field: any) => field.name === "Live URL" && field.value
+              );
+              
+              if (liveUrlField && liveUrlField.value) {
+                liveUrl = liveUrlField.value;
+                console.log(`Found Live URL in ClickUp task ${clickupTaskId}: ${liveUrl}`);
+              }
+            }
+          }
+        } catch (fetchError) {
+          console.warn("Could not fetch ClickUp task details:", fetchError);
+          // Continue with linking even if we can't fetch task details
+        }
+      }
       
-      const updatedSubId = await storage.updateSubIdClickupTask(req.params.id, clickupTaskId);
+      // Only pass liveUrl if it was actually found
+      const updatedSubId = await storage.updateSubIdClickupTask(
+        req.params.id, 
+        clickupTaskId, 
+        liveUrl !== undefined ? liveUrl : undefined
+      );
       res.json(updatedSubId);
     } catch (error: any) {
       console.error("Error linking ClickUp task:", error);
