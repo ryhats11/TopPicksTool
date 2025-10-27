@@ -1,4 +1,4 @@
-import { Copy, Check, Download, Lock, ExternalLink } from "lucide-react";
+import { Copy, Check, Download, Lock, ExternalLink, Link2 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/table";
 import { format } from "date-fns";
 import type { SubId } from "@shared/schema";
+import { ClickUpTaskDialog } from "./clickup-task-dialog";
 
 interface SubIdTableProps {
   subIds: SubId[];
@@ -23,11 +24,18 @@ interface SubIdTableProps {
 
 export function SubIdTable({ subIds, onCopy, onExportCSV, duplicateSubIds, isLoading }: SubIdTableProps) {
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [selectedSubId, setSelectedSubId] = useState<SubId | null>(null);
+  const [isClickUpDialogOpen, setIsClickUpDialogOpen] = useState(false);
 
   const handleCopy = (id: string, value: string) => {
     onCopy(value);
     setCopiedId(id);
     setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  const handleOpenClickUpDialog = (subId: SubId) => {
+    setSelectedSubId(subId);
+    setIsClickUpDialogOpen(true);
   };
 
   if (isLoading) {
@@ -86,10 +94,11 @@ export function SubIdTable({ subIds, onCopy, onExportCSV, duplicateSubIds, isLoa
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-[30%]">Sub-ID</TableHead>
-              <TableHead className="w-[35%]">URL</TableHead>
-              <TableHead className="w-[20%]">Timestamp</TableHead>
-              <TableHead className="w-[15%] text-right">Actions</TableHead>
+              <TableHead className="w-[25%]">Sub-ID</TableHead>
+              <TableHead className="w-[30%]">URL</TableHead>
+              <TableHead className="w-[20%]">ClickUp Task</TableHead>
+              <TableHead className="w-[15%]">Timestamp</TableHead>
+              <TableHead className="w-[10%] text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -120,6 +129,18 @@ export function SubIdTable({ subIds, onCopy, onExportCSV, duplicateSubIds, isLoa
                       <span className="text-muted-foreground">—</span>
                     )}
                   </TableCell>
+                  <TableCell>
+                    <Button
+                      variant={subId.clickupTaskId ? "secondary" : "outline"}
+                      size="sm"
+                      onClick={() => handleOpenClickUpDialog(subId)}
+                      data-testid={`button-clickup-${subId.id}`}
+                      className="h-8"
+                    >
+                      <Link2 className="h-3 w-3 mr-1" />
+                      {subId.clickupTaskId ? "Linked" : "Link"}
+                    </Button>
+                  </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
                     {format(new Date(subId.timestamp), "MMM d, yyyy h:mm a")}
                   </TableCell>
@@ -143,6 +164,14 @@ export function SubIdTable({ subIds, onCopy, onExportCSV, duplicateSubIds, isLoa
           </TableBody>
         </Table>
       </div>
+
+      {selectedSubId && (
+        <ClickUpTaskDialog
+          subId={selectedSubId}
+          open={isClickUpDialogOpen}
+          onOpenChange={setIsClickUpDialogOpen}
+        />
+      )}
     </div>
   );
 }

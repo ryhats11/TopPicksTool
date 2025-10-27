@@ -123,6 +123,63 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ClickUp integration routes
+  app.patch("/api/subids/:id/clickup", async (req, res) => {
+    try {
+      const { clickupTaskId } = req.body;
+      
+      if (!clickupTaskId || typeof clickupTaskId !== 'string') {
+        return res.status(400).json({ error: "Invalid ClickUp task ID" });
+      }
+      
+      const updatedSubId = await storage.updateSubIdClickupTask(req.params.id, clickupTaskId);
+      res.json(updatedSubId);
+    } catch (error: any) {
+      console.error("Error linking ClickUp task:", error);
+      res.status(500).json({ error: error.message || "Failed to link ClickUp task" });
+    }
+  });
+
+  app.delete("/api/subids/:id/clickup", async (req, res) => {
+    try {
+      const updatedSubId = await storage.updateSubIdClickupTask(req.params.id, null);
+      res.json(updatedSubId);
+    } catch (error: any) {
+      console.error("Error unlinking ClickUp task:", error);
+      res.status(500).json({ error: error.message || "Failed to unlink ClickUp task" });
+    }
+  });
+
+  app.get("/api/clickup/task/:taskId", async (req, res) => {
+    try {
+      const apiKey = process.env.CLICKUP_API_KEY;
+      
+      if (!apiKey) {
+        return res.status(500).json({ error: "ClickUp API key not configured" });
+      }
+
+      const response = await fetch(`https://api.clickup.com/api/v2/task/${req.params.taskId}`, {
+        headers: {
+          'Authorization': apiKey,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          return res.status(404).json({ error: "Task not found" });
+        }
+        throw new Error(`ClickUp API error: ${response.statusText}`);
+      }
+
+      const taskData = await response.json();
+      res.json(taskData);
+    } catch (error: any) {
+      console.error("Error fetching ClickUp task:", error);
+      res.status(500).json({ error: error.message || "Failed to fetch ClickUp task" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

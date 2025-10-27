@@ -22,6 +22,7 @@ export interface IStorage {
   createSubId(subId: InsertSubId): Promise<SubId>;
   createSubIdsBulk(subIdList: InsertSubId[]): Promise<SubId[]>;
   deleteSubId(id: string): Promise<void>;
+  updateSubIdClickupTask(id: string, clickupTaskId: string | null): Promise<SubId>;
 }
 
 export class DbStorage implements IStorage {
@@ -84,6 +85,20 @@ export class DbStorage implements IStorage {
       throw new Error("Cannot delete immutable Sub-ID");
     }
     await db.delete(subIds).where(eq(subIds.id, id));
+  }
+
+  async updateSubIdClickupTask(id: string, clickupTaskId: string | null): Promise<SubId> {
+    const [updatedSubId] = await db
+      .update(subIds)
+      .set({ clickupTaskId })
+      .where(eq(subIds.id, id))
+      .returning();
+    
+    if (!updatedSubId) {
+      throw new Error("Sub-ID not found");
+    }
+    
+    return updatedSubId;
   }
 }
 
