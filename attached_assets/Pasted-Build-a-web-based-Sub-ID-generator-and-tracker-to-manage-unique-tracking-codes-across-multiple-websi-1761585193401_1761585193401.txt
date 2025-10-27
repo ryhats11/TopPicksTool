@@ -1,0 +1,140 @@
+Build a web-based Sub-ID generator and tracker to manage unique tracking codes across multiple websites.
+Each website should have its own Sub-ID format, ensuring uniqueness and pattern diversity (so no one can tell all sites are owned by the same company).
+
+⚙️ Core Functional Requirements
+1. Multi-Website Management
+
+The app should allow adding multiple websites.
+
+Each website can have its own Sub-ID format (pattern definition).
+
+Users can select a website from a dropdown or list view to manage its Sub-IDs.
+
+2. Customizable Sub-ID Formats
+
+Each website’s Sub-ID format can be customized. Examples:
+
+ABC-{random4digits}-{random3letters}
+
+{sitePrefix}-{timestamp}-{rand6chars}
+
+RND-{uuidSegment}-{geoCode}
+
+Simple random alphanumeric (e.g., F2H7K92Q)
+
+Users should be able to:
+
+Define a format rule when adding a new website.
+
+Generate new IDs using that rule.
+
+View the generation pattern for each site in the dashboard.
+
+3. Unique Sub-ID Generation
+
+Every generated Sub-ID must be globally unique per website — no duplicates.
+
+The system must store all generated IDs in a persistent database (SQLite or JSON file).
+
+Before creating a new Sub-ID, the app checks for existing duplicates.
+
+4. Web Interface (UI Requirements)
+
+Frontend can be simple but functional:
+
+Dashboard layout:
+
+Sidebar: List of websites (and “Add New Website” button)
+
+Main panel:
+
+Display existing Sub-IDs
+
+Button: “Generate New ID”
+
+Optional: “Export to CSV” + “Copy to Clipboard”
+
+Add Website Modal:
+
+Fields: Website Name, Format Template, Optional Prefix/Suffix
+
+Use HTML/CSS/JavaScript (React optional).
+Backend: Python (Flask or FastAPI) or Node.js + Express.
+
+5. Persistence & Data Handling
+
+Store websites and Sub-IDs in a local SQLite database:
+
+Table websites: id, name, format_pattern
+
+Table subids: id, website_id, subid_value, timestamp
+
+Each Sub-ID generation event inserts into DB.
+
+Include an endpoint /generate/<website_id> that returns the new Sub-ID as JSON.
+
+🧮 Example Format Logic
+
+The app should support basic pattern variables:
+
+Variable	Function
+{randomNdigits}	Random numeric string (e.g. {random4digits} → 4829)
+{randomNletters}	Random uppercase letters
+{timestamp}	Current Unix or human-readable timestamp
+{uuidSegment}	First 8 characters of UUID
+{randNchars}	Mixed alphanumeric string
+🧰 Tech Stack Recommendation
+
+Backend: Python (Flask) + SQLite
+
+Frontend: Minimal HTML/JS or React (optional)
+
+Libraries:
+
+uuid, random, string for ID generation
+
+sqlite3 or SQLAlchemy for DB
+
+Flask for API
+
+pandas (optional) for export to CSV
+
+🧠 Example User Flow
+
+User visits dashboard → sees list of websites.
+
+Clicks “Add Website” → defines name + format.
+
+Selects website → clicks “Generate New ID”.
+
+System:
+
+Generates unique Sub-ID using the site’s format.
+
+Checks DB for duplicates.
+
+Saves & displays it in the list.
+
+User can export all IDs for that site to CSV or copy a single Sub-ID.
+
+🔒 Non-Functional Requirements
+
+Must prevent duplicates even after app restart.
+
+Must allow future scaling (e.g., API endpoints for integration with affiliate tracking).
+
+Provide clear error messages if format invalid or database write fails.
+
+⚡ Quick Action Steps
+
+Scaffold Flask app (app.py) with /add_website, /generate/<id>, and /list endpoints.
+
+Add SQLite DB with websites + subids tables.
+
+Implement format parsing logic using regex and random generators.
+
+Build frontend with form to add sites and generate new IDs.
+
+Add CSV export + clipboard copy utilities.
+
+Deploy on Replit with persistent storage.
