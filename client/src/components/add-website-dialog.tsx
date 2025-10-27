@@ -16,6 +16,7 @@ interface AddWebsiteDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSubmit: (data: { name: string; formatPattern: string }) => void;
+  existingPatterns: string[];
 }
 
 const formatVariables = [
@@ -30,10 +31,12 @@ export function AddWebsiteDialog({
   open,
   onOpenChange,
   onSubmit,
+  existingPatterns,
 }: AddWebsiteDialogProps) {
   const [name, setName] = useState("");
   const [formatPattern, setFormatPattern] = useState("");
   const [previewId, setPreviewId] = useState("");
+  const [patternError, setPatternError] = useState("");
 
   const generatePreview = (pattern: string) => {
     let preview = pattern;
@@ -62,6 +65,13 @@ export function AddWebsiteDialog({
 
   const handlePatternChange = (value: string) => {
     setFormatPattern(value);
+    
+    if (existingPatterns.includes(value)) {
+      setPatternError("This format pattern is already used by another website. Please use a unique pattern.");
+    } else {
+      setPatternError("");
+    }
+    
     if (value) {
       setPreviewId(generatePreview(value));
     } else {
@@ -70,11 +80,12 @@ export function AddWebsiteDialog({
   };
 
   const handleSubmit = () => {
-    if (name && formatPattern) {
+    if (name && formatPattern && !patternError) {
       onSubmit({ name, formatPattern });
       setName("");
       setFormatPattern("");
       setPreviewId("");
+      setPatternError("");
       onOpenChange(false);
     }
   };
@@ -116,9 +127,15 @@ export function AddWebsiteDialog({
               className="font-mono"
               data-testid="input-format-pattern"
             />
-            <p className="text-xs text-muted-foreground">
-              Click variables below to insert them into your pattern
-            </p>
+            {patternError ? (
+              <p className="text-xs text-destructive">
+                {patternError}
+              </p>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                Click variables below to insert them into your pattern
+              </p>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -160,7 +177,7 @@ export function AddWebsiteDialog({
           </Button>
           <Button
             onClick={handleSubmit}
-            disabled={!name || !formatPattern}
+            disabled={!name || !formatPattern || !!patternError}
             data-testid="button-submit-website"
           >
             Add Website

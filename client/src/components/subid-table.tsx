@@ -21,9 +21,10 @@ interface SubIdTableProps {
   subIds: SubId[];
   onCopy: (value: string) => void;
   onExportCSV: () => void;
+  duplicateSubIds: Set<string>;
 }
 
-export function SubIdTable({ subIds, onCopy, onExportCSV }: SubIdTableProps) {
+export function SubIdTable({ subIds, onCopy, onExportCSV, duplicateSubIds }: SubIdTableProps) {
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const handleCopy = (id: string, value: string) => {
@@ -86,30 +87,33 @@ export function SubIdTable({ subIds, onCopy, onExportCSV }: SubIdTableProps) {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {subIds.map((subId) => (
-              <TableRow key={subId.id}>
-                <TableCell className="font-mono font-medium">
-                  {subId.value}
-                </TableCell>
-                <TableCell className="text-sm text-muted-foreground">
-                  {format(new Date(subId.timestamp), "MMM d, yyyy h:mm a")}
-                </TableCell>
-                <TableCell className="text-right">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleCopy(subId.id, subId.value)}
-                    data-testid={`button-copy-${subId.id}`}
-                  >
-                    {copiedId === subId.id ? (
-                      <Check className="h-4 w-4 text-primary" />
-                    ) : (
-                      <Copy className="h-4 w-4" />
-                    )}
-                  </Button>
-                </TableCell>
-              </TableRow>
-            ))}
+            {subIds.map((subId) => {
+              const isDuplicate = duplicateSubIds.has(subId.value);
+              return (
+                <TableRow key={subId.id} className={isDuplicate ? "bg-destructive/10" : ""}>
+                  <TableCell className={`font-mono font-medium ${isDuplicate ? "text-destructive" : ""}`}>
+                    {subId.value}
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    {format(new Date(subId.timestamp), "MMM d, yyyy h:mm a")}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleCopy(subId.id, subId.value)}
+                      data-testid={`button-copy-${subId.id}`}
+                    >
+                      {copiedId === subId.id ? (
+                        <Check className="h-4 w-4 text-primary" />
+                      ) : (
+                        <Copy className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
       </div>

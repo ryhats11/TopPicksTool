@@ -35,6 +35,25 @@ export default function Dashboard() {
   const selectedWebsite = websites.find((w) => w.id === selectedWebsiteId);
   const selectedSubIds = selectedWebsiteId ? subIds[selectedWebsiteId] || [] : [];
 
+  const findDuplicateSubIds = (): Set<string> => {
+    const allSubIds: string[] = [];
+    const duplicates = new Set<string>();
+    
+    Object.values(subIds).forEach((websiteSubIds) => {
+      websiteSubIds.forEach((subId) => {
+        if (allSubIds.includes(subId.value)) {
+          duplicates.add(subId.value);
+        } else {
+          allSubIds.push(subId.value);
+        }
+      });
+    });
+    
+    return duplicates;
+  };
+
+  const duplicateSubIds = findDuplicateSubIds();
+
   const generateSubId = (pattern: string): string => {
     let result = pattern;
     result = result.replace(/\{random(\d+)digits\}/g, (_, num) =>
@@ -69,6 +88,12 @@ export default function Dashboard() {
       timestamp: Date.now(),
     };
 
+    const allExistingSubIds = Object.values(subIds)
+      .flat()
+      .map((s) => s.value);
+    
+    const isDuplicate = allExistingSubIds.includes(newSubId.value);
+
     setSubIds((prev) => ({
       ...prev,
       [selectedWebsite.id]: [newSubId, ...(prev[selectedWebsite.id] || [])],
@@ -80,10 +105,18 @@ export default function Dashboard() {
       )
     );
 
-    toast({
-      title: "Sub-ID Generated",
-      description: `Created: ${newSubId.value}`,
-    });
+    if (isDuplicate) {
+      toast({
+        title: "⚠️ Duplicate Sub-ID Detected!",
+        description: `${newSubId.value} already exists in another website. This is highlighted in red.`,
+        variant: "destructive",
+      });
+    } else {
+      toast({
+        title: "Sub-ID Generated",
+        description: `Created: ${newSubId.value}`,
+      });
+    }
   };
 
   const handleAddWebsite = (data: { name: string; formatPattern: string }) => {
@@ -193,6 +226,7 @@ export default function Dashboard() {
                   subIds={selectedSubIds}
                   onCopy={handleCopy}
                   onExportCSV={handleExportCSV}
+                  duplicateSubIds={duplicateSubIds}
                 />
               </div>
             ) : (
@@ -206,6 +240,7 @@ export default function Dashboard() {
         open={isAddDialogOpen}
         onOpenChange={setIsAddDialogOpen}
         onSubmit={handleAddWebsite}
+        existingPatterns={websites.map((w) => w.formatPattern)}
       />
     </SidebarProvider>
   );

@@ -15,6 +15,7 @@ export default function AddWebsiteDialogExample() {
           console.log("Website submitted:", data);
           setOpen(false);
         }}
+        existingPatterns={[]}
       />
     </div>
   );

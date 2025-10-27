@@ -30,6 +30,7 @@ export default function SubIdTableExample() {
         subIds={mockSubIds}
         onCopy={(value) => console.log("Copied:", value)}
         onExportCSV={() => console.log("Export CSV clicked")}
+        duplicateSubIds={new Set()}
       />
     </div>
   );
