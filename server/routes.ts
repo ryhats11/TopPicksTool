@@ -427,6 +427,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
             if (hasSubIdComment) {
               console.log(`   ⏭️  Task ${subId.clickupTaskId} already has Sub-ID comment`);
+              // Mark as commented even if we didn't post it (it was already there)
+              await storage.markCommentPosted(subId.id);
               skipped.push({ subId: subId.value, taskId: subId.clickupTaskId, reason: "Already commented" });
             } else {
               // Post the comment
@@ -447,6 +449,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
               if (postResponse.ok) {
                 console.log(`   ✅ Posted comment to task ${subId.clickupTaskId}: "${commentText}"`);
+                // Mark comment as posted
+                await storage.markCommentPosted(subId.id);
                 posted.push({ subId: subId.value, taskId: subId.clickupTaskId });
               } else {
                 const errorData = await postResponse.text();
@@ -524,6 +528,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const result = await response.json();
       console.log(`   ✅ Comment posted successfully`);
+
+      // Mark comment as posted
+      await storage.markCommentPosted(req.params.id);
 
       res.json({
         success: true,

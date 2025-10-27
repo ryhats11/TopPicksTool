@@ -15,6 +15,7 @@ export const subIds = pgTable("sub_ids", {
   value: text("value").notNull(),
   url: text("url"),
   clickupTaskId: text("clickup_task_id"),
+  commentPosted: boolean("comment_posted").notNull().default(false),
   timestamp: bigint("timestamp", { mode: "number" }).notNull(),
   isImmutable: boolean("is_immutable").notNull().default(false),
 });

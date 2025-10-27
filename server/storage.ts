@@ -24,6 +24,7 @@ export interface IStorage {
   createSubIdsBulk(subIdList: InsertSubId[]): Promise<SubId[]>;
   deleteSubId(id: string): Promise<void>;
   updateSubIdClickupTask(id: string, clickupTaskId: string | null, url?: string | null): Promise<SubId>;
+  markCommentPosted(id: string): Promise<SubId>;
 }
 
 export class DbStorage implements IStorage {
@@ -91,6 +92,20 @@ export class DbStorage implements IStorage {
     const [updatedSubId] = await db
       .update(subIds)
       .set(updateData)
+      .where(eq(subIds.id, id))
+      .returning();
+    
+    if (!updatedSubId) {
+      throw new Error("Sub-ID not found");
+    }
+    
+    return updatedSubId;
+  }
+
+  async markCommentPosted(id: string): Promise<SubId> {
+    const [updatedSubId] = await db
+      .update(subIds)
+      .set({ commentPosted: true })
       .where(eq(subIds.id, id))
       .returning();
     
