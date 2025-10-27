@@ -14,6 +14,7 @@ export const subIds = pgTable("sub_ids", {
   websiteId: varchar("website_id").notNull().references(() => websites.id, { onDelete: "cascade" }),
   value: text("value").notNull(),
   url: text("url"),
+  clickupTaskId: text("clickup_task_id"),
   timestamp: bigint("timestamp", { mode: "number" }).notNull(),
   isImmutable: boolean("is_immutable").notNull().default(false),
 });
