@@ -5,6 +5,7 @@ import { WebsiteHeader } from "@/components/website-header";
 import { SubIdTable } from "@/components/subid-table";
 import { AddWebsiteDialog } from "@/components/add-website-dialog";
 import { BulkImportDialog } from "@/components/bulk-import-dialog";
+import { BulkClickUpImportDialog } from "@/components/bulk-clickup-import-dialog";
 import { EmptyState } from "@/components/empty-state";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
@@ -21,6 +22,7 @@ export default function Dashboard() {
   const [selectedWebsiteId, setSelectedWebsiteId] = useState<string | null>(null);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isBulkImportOpen, setIsBulkImportOpen] = useState(false);
+  const [isBulkClickUpImportOpen, setIsBulkClickUpImportOpen] = useState(false);
 
   // Fetch websites
   const { data: websites = [], isLoading: isLoadingWebsites } = useQuery<WebsiteWithCount[]>({
@@ -295,6 +297,7 @@ export default function Dashboard() {
                   onGenerateId={handleGenerateId}
                   onDeleteWebsite={handleDeleteWebsite}
                   onBulkImport={() => setIsBulkImportOpen(true)}
+                  onBulkClickUpImport={() => setIsBulkClickUpImportOpen(true)}
                 />
                 <SubIdTable
                   subIds={subIds}
@@ -319,12 +322,19 @@ export default function Dashboard() {
       />
 
       {selectedWebsite && (
-        <BulkImportDialog
-          open={isBulkImportOpen}
-          onOpenChange={setIsBulkImportOpen}
-          onSubmit={handleBulkImport}
-          websiteName={selectedWebsite.name}
-        />
+        <>
+          <BulkImportDialog
+            open={isBulkImportOpen}
+            onOpenChange={setIsBulkImportOpen}
+            onSubmit={handleBulkImport}
+            websiteName={selectedWebsite.name}
+          />
+          <BulkClickUpImportDialog
+            websiteId={selectedWebsite.id}
+            open={isBulkClickUpImportOpen}
+            onOpenChange={setIsBulkClickUpImportOpen}
+          />
+        </>
       )}
     </SidebarProvider>
   );

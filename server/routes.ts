@@ -100,6 +100,128 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Helper function to generate Sub-ID from pattern (matches frontend logic exactly)
+  function generateSubId(pattern: string): string {
+    let result = pattern;
+    const now = new Date();
+    
+    // Match frontend patterns exactly - NO shorthand patterns
+    result = result.replace(/\{random(\d+)digits\}/g, (_, num) =>
+      Math.floor(Math.random() * Math.pow(10, parseInt(num)))
+        .toString()
+        .padStart(parseInt(num), "0")
+    );
+    result = result.replace(/\{random(\d+)letters\}/g, (_, num) =>
+      Array.from({ length: parseInt(num) }, () =>
+        String.fromCharCode(65 + Math.floor(Math.random() * 26))
+      ).join("")
+    );
+    result = result.replace(/\{rand(\d+)chars\}/g, (_, num) =>
+      Array.from({ length: parseInt(num) }, () =>
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789".charAt(Math.floor(Math.random() * 36))
+      ).join("")
+    );
+    result = result.replace(/\{timestamp\}/g, Date.now().toString());
+    result = result.replace(/\{date\}/g, 
+      `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}`
+    );
+    result = result.replace(/\{year\}/g, now.getFullYear().toString());
+    result = result.replace(/\{month\}/g, String(now.getMonth() + 1).padStart(2, "0"));
+    result = result.replace(/\{day\}/g, String(now.getDate()).padStart(2, "0"));
+    result = result.replace(/\{uuidSegment\}/g, 
+      Math.random().toString(36).substring(2, 10).toUpperCase()
+    );
+    result = result.replace(/\{hex(\d+)\}/g, (_, num) =>
+      Array.from({ length: parseInt(num) }, () =>
+        Math.floor(Math.random() * 16).toString(16).toUpperCase()
+      ).join("")
+    );
+    return result;
+  }
+
+  // Bulk import from ClickUp task IDs
+  app.post("/api/websites/:websiteId/clickup/bulk", async (req, res) => {
+    try {
+      const { taskIds } = req.body;
+      const websiteId = req.params.websiteId;
+      
+      if (!Array.isArray(taskIds) || taskIds.length === 0) {
+        return res.status(400).json({ error: "taskIds must be a non-empty array" });
+      }
+
+      // Get the website to retrieve format pattern
+      const website = await storage.getWebsite(websiteId);
+      if (!website) {
+        return res.status(404).json({ error: "Website not found" });
+      }
+
+      const apiKey = process.env.CLICKUP_API_KEY;
+      const createdSubIds = [];
+
+      // Process each task ID
+      for (const taskId of taskIds) {
+        if (!taskId || typeof taskId !== 'string') {
+          console.warn(`Skipping invalid task ID: ${taskId}`);
+          continue;
+        }
+
+        let liveUrl: string | undefined = undefined;
+
+        // Fetch ClickUp task details
+        if (apiKey) {
+          try {
+            const response = await fetch(`https://api.clickup.com/api/v2/task/${taskId.trim()}`, {
+              headers: {
+                'Authorization': apiKey,
+                'Content-Type': 'application/json',
+              },
+            });
+
+            if (response.ok) {
+              const taskData = await response.json();
+              
+              // Look for "Live URL" custom field
+              if (taskData.custom_fields && Array.isArray(taskData.custom_fields)) {
+                const liveUrlField = taskData.custom_fields.find(
+                  (field: any) => field.name === "Live URL" && field.value
+                );
+                
+                if (liveUrlField && liveUrlField.value) {
+                  liveUrl = liveUrlField.value;
+                  console.log(`Found Live URL for task ${taskId}: ${liveUrl}`);
+                }
+              }
+            } else {
+              console.warn(`Could not fetch ClickUp task ${taskId}: ${response.statusText}`);
+            }
+          } catch (fetchError) {
+            console.warn(`Error fetching ClickUp task ${taskId}:`, fetchError);
+          }
+        }
+
+        // Generate Sub-ID value using website's format pattern
+        const subIdValue = generateSubId(website.formatPattern);
+
+        // Create the Sub-ID with ClickUp task linked
+        const newSubId = await storage.createSubId({
+          websiteId: websiteId,
+          value: subIdValue,
+          url: liveUrl || null,
+          clickupTaskId: taskId.trim(),
+          timestamp: Date.now(),
+          isImmutable: true, // Bulk imported from ClickUp are immutable
+        });
+
+        createdSubIds.push(newSubId);
+      }
+
+      res.json(createdSubIds);
+    } catch (error: any) {
+      console.error("Error in bulk ClickUp import:", error);
+      res.status(500).json({ error: error.message || "Failed to import ClickUp tasks" });
+    }
+  });
+
   app.delete("/api/subids/:id", async (req, res) => {
     try {
       await storage.deleteSubId(req.params.id);
