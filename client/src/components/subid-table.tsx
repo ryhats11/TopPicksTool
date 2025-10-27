@@ -13,6 +13,7 @@ import {
 import { format } from "date-fns";
 import type { SubId } from "@shared/schema";
 import { ClickUpTaskDialog } from "./clickup-task-dialog";
+import { AffiliateLinkDropdown } from "./affiliate-links-dropdown";
 
 interface SubIdTableProps {
   subIds: SubId[];
@@ -118,21 +119,27 @@ export function SubIdTable({ subIds, onCopy, onExportCSV, onDelete, onPostCommen
                         )}
                       </div>
                       {subId.clickupTaskId && (
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <Badge variant="outline" className="text-xs font-mono px-2 py-0.5">
-                            <Link2 className="h-2.5 w-2.5 mr-1" />
-                            {subId.clickupTaskId}
-                          </Badge>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => onPostComment(subId.id)}
-                            disabled={postingCommentId === subId.id || subId.commentPosted}
-                            data-testid={`button-comment-${subId.id}`}
-                            className={`h-5 w-5 ${subId.commentPosted ? 'text-muted-foreground opacity-50' : ''}`}
-                          >
-                            <MessageSquare className="h-3 w-3" />
-                          </Button>
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <Badge variant="outline" className="text-xs font-mono px-2 py-0.5">
+                              <Link2 className="h-2.5 w-2.5 mr-1" />
+                              {subId.clickupTaskId}
+                            </Badge>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => onPostComment(subId.id)}
+                              disabled={postingCommentId === subId.id || subId.commentPosted}
+                              data-testid={`button-comment-${subId.id}`}
+                              className={`h-5 w-5 ${subId.commentPosted ? 'text-muted-foreground opacity-50' : ''}`}
+                            >
+                              <MessageSquare className="h-3 w-3" />
+                            </Button>
+                          </div>
+                          <AffiliateLinkDropdown 
+                            clickupTaskId={subId.clickupTaskId}
+                            subIdValue={subId.value}
+                          />
                         </div>
                       )}
                     </div>
