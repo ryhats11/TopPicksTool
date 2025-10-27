@@ -153,36 +153,15 @@ export function SubIdTable({ subIds, onCopy, onExportCSV, onDelete, onPostCommen
                     )}
                   </TableCell>
                   <TableCell className="py-4">
-                    {subId.clickupTaskId ? (
-                      <div className="flex items-center gap-2">
-                        <Badge 
-                          variant="outline" 
-                          className="border-emerald-600/40 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-600/30 font-medium"
-                        >
-                          <CheckCircle2 className="h-3 w-3 mr-1" />
-                          Linked
-                        </Badge>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleOpenClickUpDialog(subId)}
-                          data-testid={`button-clickup-${subId.id}`}
-                          className="h-7 px-2 text-xs text-muted-foreground"
-                        >
-                          Edit
-                        </Button>
-                      </div>
-                    ) : (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleOpenClickUpDialog(subId)}
-                        data-testid={`button-clickup-${subId.id}`}
-                      >
-                        <Link2 className="h-3.5 w-3.5 mr-1.5" />
-                        Link Task
-                      </Button>
-                    )}
+                    <Button
+                      variant={subId.clickupTaskId ? "secondary" : "outline"}
+                      size="sm"
+                      onClick={() => handleOpenClickUpDialog(subId)}
+                      data-testid={`button-clickup-${subId.id}`}
+                    >
+                      <Link2 className="h-3.5 w-3.5 mr-1.5" />
+                      {subId.clickupTaskId ? "Linked" : "Link"}
+                    </Button>
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground py-4 whitespace-nowrap">
                     {format(new Date(subId.timestamp), "MMM d, yyyy h:mm a")}
