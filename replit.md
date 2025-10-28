@@ -5,8 +5,8 @@
 A web-based application for managing unique tracking codes (Sub-IDs) across multiple websites and brand rankings by geographic region. The system includes two main modules:
 
 1. **Sub-ID Tracker**: Manages unique tracking codes across multiple websites with customizable format patterns, ClickUp CMS integration, and affiliate link management
-2. **Brand Rankings**: Maintains brand lists per geographic region (GEO) with RPC (Revenue Per Click) values:
-   - **Featured Brands**: Top 10 ranked brands (positions 1-10) with RPC tracking
+2. **Brand Rankings**: Maintains brand lists per geographic region (GEO):
+   - **Featured Brands**: Top 10 ranked brands (positions 1-10) with affiliate link tracking
    - **Other Brands**: Unlimited non-featured brands per GEO for organization and tracking
 
 ## User Preferences
@@ -39,7 +39,7 @@ Preferred communication style: Simple, everyday language.
 - Multi-dialog system for adding websites, GEOs, brands, and bulk importing Sub-IDs
 - Real-time duplicate detection across all Sub-IDs
 - CSV export functionality for Sub-ID data
-- Brand rankings editor with position management (1-10) and RPC tracking
+- Brand rankings editor with position management (1-10) and affiliate link tracking
 - Theme toggle supporting light and dark modes
 - Responsive design with mobile-first breakpoints
 - Navigation between Sub-ID Tracker and Brand Rankings modules
@@ -88,9 +88,9 @@ Preferred communication style: Simple, everyday language.
   - Foreign key constraint with cascade delete to maintain referential integrity
 - **GEOs Table**: Stores geographic regions with code, name, and sort order
 - **Brands Table**: Global brand directory with name, default URL, and status
-- **GeoBrandRankings Table**: Junction table for GEO-Brand relationships with position and RPC data
+- **GeoBrandRankings Table**: Junction table for GEO-Brand relationships with position and affiliate link data
   - Position (nullable): 1-10 for featured brands, null for non-featured brands
-  - RPC in cents, optional affiliate link, timestamp
+  - Optional affiliate link, timestamp
   - Unique constraints on (geoId, position) when position is not null, and (geoId, brandId) to prevent duplicates
   - Foreign keys to GEOs and Brands with cascade delete
   - Supports both featured (top 10 ranked) and unlimited non-featured brands per GEO

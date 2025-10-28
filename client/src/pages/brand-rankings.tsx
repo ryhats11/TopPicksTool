@@ -377,7 +377,6 @@ export default function BrandRankings() {
       const res = await apiRequest("POST", `/api/geos/${selectedGeoId}/rankings`, {
         brandId,
         position: null,
-        rpcInCents: 0,
         timestamp: Date.now(),
       });
       return await res.json();
@@ -457,7 +456,6 @@ export default function BrandRankings() {
           geoId: selectedGeoId!,
           brandId: "",
           position: i,
-          rpcInCents: 0,
           affiliateLink: null,
           timestamp: Date.now(),
         });
@@ -480,7 +478,6 @@ export default function BrandRankings() {
       .map((r) => ({
         brandId: r.brandId,
         position: r.position,
-        rpcInCents: r.rpcInCents,
         affiliateLink: r.affiliateLink || null,
         timestamp: Date.now(),
       }));
@@ -708,7 +705,6 @@ export default function BrandRankings() {
                           <TableRow>
                             <TableHead className="w-20">Position</TableHead>
                             <TableHead>Brand</TableHead>
-                            <TableHead className="w-32">RPC (€)</TableHead>
                             <TableHead>Affiliate Link</TableHead>
                           </TableRow>
                         </TableHeader>
@@ -716,7 +712,7 @@ export default function BrandRankings() {
                           {!isEditMode ? (
                             featuredRankings.length === 0 ? (
                               <TableRow>
-                                <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
+                                <TableCell colSpan={3} className="text-center text-muted-foreground py-8">
                                   No rankings yet. Click "Edit Rankings" to add brands.
                                 </TableCell>
                               </TableRow>
@@ -725,9 +721,6 @@ export default function BrandRankings() {
                                 <TableRow key={ranking.id} data-testid={`ranking-row-${ranking.position}`}>
                                   <TableCell className="font-semibold" data-testid={`cell-position-${ranking.position}`}>#{ranking.position}</TableCell>
                                   <TableCell data-testid={`cell-brand-${ranking.position}`}>{ranking.brand?.name || "Unknown Brand"}</TableCell>
-                                  <TableCell className="font-mono" data-testid={`cell-rpc-${ranking.position}`}>
-                                    €{(ranking.rpcInCents / 100).toFixed(2)}
-                                  </TableCell>
                                   <TableCell className="text-sm text-muted-foreground truncate max-w-xs" data-testid={`cell-affiliate-link-${ranking.position}`}>
                                     {ranking.affiliateLink ? (
                                       <a href={ranking.affiliateLink} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
@@ -786,24 +779,6 @@ export default function BrandRankings() {
                                         </div>
                                       </SelectContent>
                                     </Select>
-                                  </TableCell>
-                                  <TableCell data-testid={`cell-edit-rpc-${position}`}>
-                                    <Input
-                                      type="number"
-                                      step="0.01"
-                                      placeholder="0.00"
-                                      value={
-                                        ranking?.rpcInCents
-                                          ? (ranking.rpcInCents / 100).toFixed(2)
-                                          : ""
-                                      }
-                                      onChange={(e) => {
-                                        const euros = parseFloat(e.target.value) || 0;
-                                        updateEditingRanking(position, "rpcInCents", Math.round(euros * 100));
-                                      }}
-                                      className="font-mono"
-                                      data-testid={`input-edit-rpc-${position}`}
-                                    />
                                   </TableCell>
                                   <TableCell data-testid={`cell-edit-affiliate-link-${position}`}>
                                     <Input
@@ -1064,7 +1039,6 @@ export default function BrandRankings() {
                       await apiRequest("POST", `/api/geos/${selectedGeoId}/rankings`, {
                         brandId: brand.id,
                         position: position,
-                        rpcInCents: 0,
                         timestamp: Date.now(),
                       });
                       addedCount++;
@@ -1087,7 +1061,6 @@ export default function BrandRankings() {
                       await apiRequest("POST", `/api/geos/${selectedGeoId}/rankings`, {
                         brandId: brand.id,
                         position: null,
-                        rpcInCents: 0,
                         timestamp: Date.now(),
                       });
                       addedCount++;

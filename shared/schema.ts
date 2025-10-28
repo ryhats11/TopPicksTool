@@ -40,7 +40,6 @@ export const geoBrandRankings = pgTable("geo_brand_rankings", {
   geoId: varchar("geo_id").notNull().references(() => geos.id, { onDelete: "cascade" }),
   brandId: varchar("brand_id").notNull().references(() => brands.id, { onDelete: "cascade" }),
   position: integer("position"), // Nullable: null = not featured, 1-10 = featured ranking
-  rpcInCents: integer("rpc_in_cents").notNull().default(0),
   affiliateLink: text("affiliate_link"),
   timestamp: bigint("timestamp", { mode: "number" }).notNull(),
 }, (table) => ({
@@ -70,7 +69,6 @@ export const insertGeoBrandRankingSchema = createInsertSchema(geoBrandRankings).
   id: true,
 }).extend({
   position: z.number().int().min(1).max(10).nullable().optional(),
-  rpcInCents: z.number().int().min(0),
 });
 
 export type InsertWebsite = z.infer<typeof insertWebsiteSchema>;
