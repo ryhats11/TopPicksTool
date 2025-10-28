@@ -664,71 +664,108 @@ export async function registerRoutes(app: Express): Promise<Server> {
         comments = commentsData.comments || [];
       }
 
-      // Helper function to extract URLs from table columns
-      const extractUrlsFromTable = (text: string): string[] => {
+      // Helper function to extract URLs from "Tracking Link with ClickUp task ID" column
+      const extractUrlsFromTrackingColumn = (text: string): string[] => {
         if (!text) return [];
         
         const foundUrls: string[] = [];
         
-        // Strategy 1: Parse markdown tables with "Tracking Link" column
-        const lines = text.split('\n');
+        // Look for "🥇 TOP PICKS LINEUP" section
+        const topPicksMatch = text.match(/🥇\s*TOP PICKS LINEUP[\s\S]*?(?=\n#{1,3}\s|\n---|\Z)/i);
+        const textToSearch = topPicksMatch ? topPicksMatch[0] : text;
+        
+        if (topPicksMatch) {
+          console.log(`   🥇 Found TOP PICKS LINEUP section (${textToSearch.length} chars)`);
+        }
+        
+        // Strategy 1: Parse markdown tables with "Tracking Link with ClickUp task ID" column
+        const lines = textToSearch.split('\n');
         let trackingColumnIndex = -1;
+        let inTable = false;
         
         for (let i = 0; i < lines.length; i++) {
           const line = lines[i].trim();
           
-          // Check if this is a header row with pipe separators
-          if (line.includes('|') && (
-            line.toLowerCase().includes('tracking link') || 
-            line.toLowerCase().includes('clickup task')
-          )) {
-            // Parse the header to find column index
+          // Check if this is the header row with our specific column
+          if (line.includes('|') && line.toLowerCase().includes('tracking link')) {
             const headers = line.split('|').map(h => h.trim());
-            trackingColumnIndex = headers.findIndex(h => 
-              h.toLowerCase().includes('tracking link') || 
-              h.toLowerCase().includes('clickup task')
-            );
             
-            console.log(`   📊 Found table with tracking column at index ${trackingColumnIndex}`);
+            // Find the exact column: "Tracking Link with ClickUp task ID"
+            trackingColumnIndex = headers.findIndex(h => {
+              const lowerH = h.toLowerCase();
+              return lowerH.includes('tracking link') && lowerH.includes('clickup');
+            });
+            
+            if (trackingColumnIndex === -1) {
+              // Fallback: just look for "tracking link"
+              trackingColumnIndex = headers.findIndex(h => 
+                h.toLowerCase().includes('tracking link')
+              );
+            }
+            
+            if (trackingColumnIndex >= 0) {
+              inTable = true;
+              console.log(`   📊 Found "Tracking Link with ClickUp task ID" column at index ${trackingColumnIndex}`);
+              console.log(`   📋 Column header: "${headers[trackingColumnIndex]}"`);
+            }
             continue;
           }
           
           // If we found the tracking column, extract URLs from that column in data rows
-          if (trackingColumnIndex >= 0 && line.includes('|') && !line.match(/^[\s|:-]+$/)) {
+          if (inTable && trackingColumnIndex >= 0 && line.includes('|')) {
+            // Skip separator rows
+            if (line.match(/^[\s|:-]+$/)) continue;
+            
             const cells = line.split('|').map(c => c.trim());
             if (cells.length > trackingColumnIndex) {
               const cellContent = cells[trackingColumnIndex];
-              // Extract all URLs from this cell
+              
+              // Extract ALL URLs from this cell (not just those with tracking params)
               const urlRegex = /https?:\/\/[^\s<>"'`|]+/gi;
               const urls = cellContent.match(urlRegex) || [];
-              foundUrls.push(...urls);
+              
+              if (urls.length > 0) {
+                console.log(`   ✅ Extracted ${urls.length} URL(s) from row ${i}`);
+                foundUrls.push(...urls);
+              }
             }
+          }
+          
+          // Stop if we hit another section or table ends
+          if (inTable && line && !line.includes('|') && line.match(/^#{1,3}\s/)) {
+            inTable = false;
           }
         }
         
-        // Strategy 2: Parse HTML tables
+        // Strategy 2: Parse HTML tables in the TOP PICKS section
         const htmlTableRegex = /<table[\s\S]*?<\/table>/gi;
-        const tables = text.match(htmlTableRegex) || [];
+        const tables = textToSearch.match(htmlTableRegex) || [];
         
         for (const table of tables) {
-          // Find header cells to identify tracking column
           const headerRegex = /<th[^>]*>([\s\S]*?)<\/th>/gi;
           const headers: string[] = [];
           let headerMatch;
           
           while ((headerMatch = headerRegex.exec(table)) !== null) {
-            headers.push(headerMatch[1].replace(/<[^>]+>/g, '').trim());
+            const headerText = headerMatch[1].replace(/<[^>]+>/g, '').trim();
+            headers.push(headerText);
           }
           
-          const trackingColIdx = headers.findIndex(h => 
-            h.toLowerCase().includes('tracking link') || 
-            h.toLowerCase().includes('clickup task')
-          );
+          // Find "Tracking Link with ClickUp task ID" column
+          let trackingColIdx = headers.findIndex(h => {
+            const lowerH = h.toLowerCase();
+            return lowerH.includes('tracking link') && lowerH.includes('clickup');
+          });
+          
+          if (trackingColIdx === -1) {
+            trackingColIdx = headers.findIndex(h => 
+              h.toLowerCase().includes('tracking link')
+            );
+          }
           
           if (trackingColIdx >= 0) {
             console.log(`   📊 Found HTML table with tracking column at index ${trackingColIdx}`);
             
-            // Extract rows and get URLs from the tracking column
             const rowRegex = /<tr[^>]*>([\s\S]*?)<\/tr>/gi;
             let rowMatch;
             
@@ -760,9 +797,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         const foundUrls: string[] = [];
         
-        // First, try table extraction (highest priority for structured data)
-        const tableUrls = extractUrlsFromTable(text);
-        foundUrls.push(...tableUrls);
+        // First, try targeted extraction from "Tracking Link with ClickUp task ID" column
+        const trackingUrls = extractUrlsFromTrackingColumn(text);
+        foundUrls.push(...trackingUrls);
         
         // Strategy 1: Standard URL regex (catches most http/https URLs)
         const standardUrlRegex = /https?:\/\/[^\s<>"'`()[\]{}|]+/gi;
@@ -813,10 +850,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return cleaned.trim();
       };
 
-      // Collect all text sources to search
+      // Collect text sources - prioritize description for TOP PICKS LINEUP
       const textSources: string[] = [];
       
-      // Check task description (both plain and HTML)
+      // Primary source: Task description (contains TOP PICKS LINEUP table)
       if (taskData.description) {
         textSources.push(taskData.description);
       }
@@ -824,12 +861,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         textSources.push(taskData.text_content);
       }
       
-      // Check task name (sometimes URLs are in the title)
-      if (taskData.name) {
-        textSources.push(taskData.name);
-      }
-      
-      // Check comments (both comment_text and text fields)
+      // Also check comments as fallback
       for (const comment of comments) {
         if (comment.comment_text) {
           textSources.push(comment.comment_text);
