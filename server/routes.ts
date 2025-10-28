@@ -898,7 +898,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const lines = topPicksSection.split('\n');
         const trackingLinks: string[] = [];
         
-        for (const line of lines) {
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i];
+          
           // Skip empty lines and header rows
           if (!line.trim() || line.includes('---') || line.toLowerCase().includes('brand name')) {
             continue;
@@ -923,7 +925,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           // Build the complete URL by capturing everything until we hit a table delimiter (|)
           // This handles cases where parameters/values are separated by spaces in markdown tables
-          const restOfCell = afterUrlStart.split('|')[0];
+          let restOfCell = afterUrlStart.split('|')[0];
           
           // Debug logging for the first URL
           if (trackingLinks.length === 0) {
@@ -931,6 +933,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
             console.log(`      Line: ${JSON.stringify(line)}`);
             console.log(`      Initial URL: ${url}`);
             console.log(`      Rest of cell: ${JSON.stringify(restOfCell)}`);
+          }
+          
+          // If URL ends with "=" and there's nothing after it, check the next line
+          if (url.endsWith('=') && !restOfCell.trim() && i + 1 < lines.length) {
+            const nextLine = lines[i + 1];
+            // Check if next line has the value (not a URL, not a separator)
+            if (nextLine && !nextLine.includes('http') && !nextLine.includes('---') && nextLine.trim()) {
+              const nextValue = nextLine.split('|')[0].trim();
+              // If it looks like a parameter value, append it
+              if (nextValue.match(/^[a-zA-Z0-9_-]+$/)) {
+                url = url + nextValue;
+                if (trackingLinks.length === 0) {
+                  console.log(`      Found value on next line: "${nextValue}" → ${url}`);
+                }
+                // Skip the next line since we consumed it
+                i++;
+              }
+            }
           }
           
           // Append any remaining URL parts (handling spaces in table cells)
