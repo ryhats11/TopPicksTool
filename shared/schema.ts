@@ -41,7 +41,7 @@ export const geoBrandRankings = pgTable("geo_brand_rankings", {
   brandId: varchar("brand_id").notNull().references(() => brands.id, { onDelete: "cascade" }),
   position: integer("position").notNull(),
   rpcInCents: integer("rpc_in_cents").notNull(),
-  notes: text("notes"),
+  affiliateLink: text("affiliate_link"),
   timestamp: bigint("timestamp", { mode: "number" }).notNull(),
 }, (table) => ({
   uniqueGeoPosition: unique().on(table.geoId, table.position),

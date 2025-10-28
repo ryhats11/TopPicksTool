@@ -393,7 +393,7 @@ export default function BrandRankings() {
           brandId: "",
           position: i,
           rpcInCents: 0,
-          notes: null,
+          affiliateLink: null,
           timestamp: Date.now(),
         });
       }
@@ -416,7 +416,7 @@ export default function BrandRankings() {
         brandId: r.brandId,
         position: r.position,
         rpcInCents: r.rpcInCents,
-        notes: r.notes || null,
+        affiliateLink: r.affiliateLink || null,
         timestamp: Date.now(),
       }));
     
@@ -631,7 +631,7 @@ export default function BrandRankings() {
                             <TableHead className="w-20">Position</TableHead>
                             <TableHead>Brand</TableHead>
                             <TableHead className="w-32">RPC (€)</TableHead>
-                            <TableHead>Notes</TableHead>
+                            <TableHead>Affiliate Link</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -650,8 +650,12 @@ export default function BrandRankings() {
                                   <TableCell className="font-mono" data-testid={`cell-rpc-${ranking.position}`}>
                                     €{(ranking.rpcInCents / 100).toFixed(2)}
                                   </TableCell>
-                                  <TableCell className="text-sm text-muted-foreground" data-testid={`cell-notes-${ranking.position}`}>
-                                    {ranking.notes || "-"}
+                                  <TableCell className="text-sm text-muted-foreground truncate max-w-xs" data-testid={`cell-affiliate-link-${ranking.position}`}>
+                                    {ranking.affiliateLink ? (
+                                      <a href={ranking.affiliateLink} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+                                        {ranking.affiliateLink}
+                                      </a>
+                                    ) : "-"}
                                   </TableCell>
                                 </TableRow>
                               ))
@@ -699,15 +703,15 @@ export default function BrandRankings() {
                                       data-testid={`input-edit-rpc-${position}`}
                                     />
                                   </TableCell>
-                                  <TableCell data-testid={`cell-edit-notes-${position}`}>
+                                  <TableCell data-testid={`cell-edit-affiliate-link-${position}`}>
                                     <Input
-                                      type="text"
-                                      placeholder="Optional notes"
-                                      value={ranking?.notes || ""}
+                                      type="url"
+                                      placeholder="https://example.com/affiliate-link"
+                                      value={ranking?.affiliateLink || ""}
                                       onChange={(e) =>
-                                        updateEditingRanking(position, "notes", e.target.value)
+                                        updateEditingRanking(position, "affiliateLink", e.target.value)
                                       }
-                                      data-testid={`input-edit-notes-${position}`}
+                                      data-testid={`input-edit-affiliate-link-${position}`}
                                     />
                                   </TableCell>
                                 </TableRow>
