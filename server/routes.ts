@@ -679,66 +679,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         const topPicksSection = topPicksMatch[0];
         console.log(`   🥇 Found TOP PICKS LINEUP section (${topPicksSection.length} chars)`);
-        console.log(`   📄 First 500 chars:`, topPicksSection.substring(0, 500));
-        console.log(`   📄 Last 500 chars:`, topPicksSection.substring(Math.max(0, topPicksSection.length - 500)));
         
-        // Parse the markdown table to extract ONLY the "Tracking Link with ClickUp task ID" column
-        const lines = topPicksSection.split('\n');
-        let trackingColumnIndex = -1;
-        let inTable = false;
+        // Extract all URLs from the section
+        const urlRegex = /https?:\/\/[^\s<>"'`|)]+/gi;
+        const allUrls = topPicksSection.match(urlRegex) || [];
         
-        for (let i = 0; i < lines.length; i++) {
-          const line = lines[i].trim();
-          
-          // Find the header row
-          if (line.includes('|') && line.toLowerCase().includes('tracking link')) {
-            const headers = line.split('|').map(h => h.trim());
-            trackingColumnIndex = headers.findIndex(h => 
-              h.toLowerCase().includes('tracking link') && h.toLowerCase().includes('clickup')
-            );
-            
-            if (trackingColumnIndex === -1) {
-              trackingColumnIndex = headers.findIndex(h => 
-                h.toLowerCase().includes('tracking link')
-              );
-            }
-            
-            if (trackingColumnIndex >= 0) {
-              inTable = true;
-              console.log(`   📊 Found "Tracking Link" column at index ${trackingColumnIndex}`);
-              console.log(`   📋 Table headers:`, headers);
-            }
+        console.log(`   🔍 Found ${allUrls.length} total URL(s) in TOP PICKS section`);
+        
+        // Filter out the cloaked links (pokerology.com) - we only want the tracking links
+        // The pattern is: each row has 2 URLs - first is cloaked (pokerology.com), second is tracking link
+        const trackingLinks: string[] = [];
+        
+        for (let i = 0; i < allUrls.length; i++) {
+          const url = allUrls[i];
+          // Skip pokerology.com URLs (these are cloaked links)
+          if (url.includes('pokerology.com')) {
+            console.log(`   ⏭️  Skipping cloaked link: ${url.substring(0, 60)}...`);
             continue;
           }
-          
-          // Extract URLs from the tracking column only
-          if (inTable && trackingColumnIndex >= 0 && line.includes('|')) {
-            // Skip separator rows
-            if (line.match(/^[\s|:-]+$/)) continue;
-            
-            const cells = line.split('|').map(c => c.trim());
-            if (cells.length > trackingColumnIndex) {
-              const cellContent = cells[trackingColumnIndex];
-              
-              // Extract URLs from this specific cell only
-              const urlRegex = /https?:\/\/[^\s<>"'`|)]+/gi;
-              const urls = cellContent.match(urlRegex) || [];
-              
-              if (urls.length > 0) {
-                for (const url of urls) {
-                  foundLinks.push({
-                    url,
-                    brand: '',
-                    position: (foundLinks.length + 1).toString()
-                  });
-                  console.log(`   ✅ Row ${i}: ${url.substring(0, 60)}...`);
-                }
-              }
-            }
-          }
+          // This is a tracking link
+          trackingLinks.push(url);
+          console.log(`   ✅ Tracking link ${trackingLinks.length}: ${url.substring(0, 60)}...`);
         }
         
-        console.log(`   📋 Total extracted: ${foundLinks.length} link(s)`);
+        // Convert to the expected format
+        for (let i = 0; i < trackingLinks.length; i++) {
+          foundLinks.push({
+            url: trackingLinks[i],
+            brand: '',
+            position: (i + 1).toString()
+          });
+        }
+        
+        console.log(`   📋 Total extracted: ${foundLinks.length} tracking link(s)`);
         return foundLinks;
       };
 
