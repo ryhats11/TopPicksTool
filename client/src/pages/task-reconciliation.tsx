@@ -1,20 +1,21 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { Loader2, Search, CheckCircle2, XCircle, AlertCircle } from "lucide-react";
-import type { Geo } from "@shared/schema";
+import { Loader2, Search, CheckCircle2, XCircle, AlertCircle, Globe } from "lucide-react";
 
 interface ReconciliationResult {
   taskId: string;
   websiteName: string | null;
   websiteId: string | null;
+  detectedGeo: {
+    code: string;
+    name: string;
+  } | null;
   brandMatch: {
     position: number;
     brandName: string;
@@ -27,29 +28,14 @@ interface ReconciliationResult {
 export default function TaskReconciliation() {
   const { toast } = useToast();
   const [taskIds, setTaskIds] = useState("");
-  const [selectedGeoId, setSelectedGeoId] = useState<string>("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [results, setResults] = useState<ReconciliationResult[]>([]);
-
-  // Fetch GEOs
-  const { data: geos = [] } = useQuery<Geo[]>({
-    queryKey: ["/api/geos"],
-  });
 
   const handleAnalyze = async () => {
     if (!taskIds.trim()) {
       toast({
         title: "No Task IDs",
         description: "Please enter at least one ClickUp task ID.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!selectedGeoId) {
-      toast({
-        title: "No GEO Selected",
-        description: "Please select a GEO to analyze against.",
         variant: "destructive",
       });
       return;
@@ -76,7 +62,6 @@ export default function TaskReconciliation() {
     try {
       const res = await apiRequest("POST", "/api/reconcile-tasks", {
         taskIds: taskIdList,
-        geoId: selectedGeoId,
       });
 
       const data = await res.json();
@@ -97,14 +82,12 @@ export default function TaskReconciliation() {
     }
   };
 
-  const selectedGeo = geos.find(g => g.id === selectedGeoId);
-
   return (
     <div className="container mx-auto p-6 max-w-7xl">
       <div className="mb-6">
         <h1 className="text-3xl font-bold mb-2">Task Reconciliation</h1>
         <p className="text-muted-foreground">
-          Cross-reference ClickUp tasks with featured brands and Sub-ID tracker
+          Auto-detects Target GEO from each task and cross-references with featured brands and Sub-ID tracker
         </p>
       </div>
 
@@ -122,34 +105,13 @@ export default function TaskReconciliation() {
               data-testid="textarea-task-ids"
             />
             <p className="text-xs text-muted-foreground mt-1">
-              Enter one task ID per line or separate with commas
-            </p>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-2">
-              Select GEO (Featured Brands)
-            </label>
-            <Select value={selectedGeoId} onValueChange={setSelectedGeoId}>
-              <SelectTrigger data-testid="select-geo-trigger">
-                <SelectValue placeholder="Select a GEO..." />
-              </SelectTrigger>
-              <SelectContent data-testid="select-geo-content">
-                {geos.map((geo) => (
-                  <SelectItem key={geo.id} value={geo.id} data-testid={`select-geo-${geo.code}`}>
-                    {geo.name} ({geo.code})
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <p className="text-xs text-muted-foreground mt-1">
-              Tasks will be matched against the top 10 featured brands for this region
+              Enter one task ID per line or separate with commas. Each task's *Target GEO custom field will be used for brand matching.
             </p>
           </div>
 
           <Button
             onClick={handleAnalyze}
-            disabled={isAnalyzing || !taskIds.trim() || !selectedGeoId}
+            disabled={isAnalyzing || !taskIds.trim()}
             className="w-full"
             data-testid="button-analyze"
           >
@@ -173,11 +135,6 @@ export default function TaskReconciliation() {
           <div className="p-6">
             <h2 className="text-xl font-semibold mb-4">
               Reconciliation Results
-              {selectedGeo && (
-                <span className="ml-2 text-sm font-normal text-muted-foreground">
-                  ({selectedGeo.name})
-                </span>
-              )}
             </h2>
 
             <div className="overflow-x-auto">
@@ -185,6 +142,7 @@ export default function TaskReconciliation() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Task ID</TableHead>
+                    <TableHead>Target GEO</TableHead>
                     <TableHead>Website</TableHead>
                     <TableHead>Brand Match</TableHead>
                     <TableHead>Sub-ID Status</TableHead>
@@ -196,6 +154,16 @@ export default function TaskReconciliation() {
                     <TableRow key={index} data-testid={`result-row-${index}`}>
                       <TableCell className="font-mono text-sm" data-testid={`cell-task-id-${index}`}>
                         {result.taskId}
+                      </TableCell>
+                      <TableCell data-testid={`cell-geo-${index}`}>
+                        {result.detectedGeo ? (
+                          <Badge variant="outline" className="gap-1">
+                            <Globe className="h-3 w-3" />
+                            {result.detectedGeo.code}
+                          </Badge>
+                        ) : (
+                          <span className="text-muted-foreground text-sm">Not set</span>
+                        )}
                       </TableCell>
                       <TableCell data-testid={`cell-website-${index}`}>
                         {result.error ? (
@@ -271,7 +239,7 @@ export default function TaskReconciliation() {
           <div className="text-center text-muted-foreground">
             <Search className="h-12 w-12 mx-auto mb-4 opacity-50" />
             <p className="text-lg">No results yet</p>
-            <p className="text-sm">Enter task IDs and select a GEO to begin analysis</p>
+            <p className="text-sm">Enter task IDs to begin analysis</p>
           </div>
         </Card>
       )}
