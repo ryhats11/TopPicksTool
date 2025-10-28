@@ -379,6 +379,110 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Helper function to generate TOP PICKS LINEUP comment with Sub-ID replacements
+  async function generateTopPicksComment(apiKey: string, taskId: string, subIdValue: string): Promise<string> {
+    // Fetch the task to get the description with TOP PICKS LINEUP table
+    const taskResponse = await fetch(`https://api.clickup.com/api/v2/task/${taskId}`, {
+      headers: {
+        'Authorization': apiKey,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!taskResponse.ok) {
+      throw new Error(`Failed to fetch task: ${taskResponse.statusText}`);
+    }
+
+    const taskData = await taskResponse.json();
+    const taskDescription = taskData.description || taskData.text_content || '';
+
+    // Extract TOP PICKS LINEUP section
+    const topPicksMatch = taskDescription.match(/🥇\s*TOP PICKS LINEUP[\s\S]*?(?=\n#{1,2}\s[^#]|$)/i);
+    
+    if (!topPicksMatch) {
+      console.log(`   ⚠️  No TOP PICKS LINEUP section found, using simple Sub-ID comment`);
+      return `Sub-ID: ${subIdValue}`;
+    }
+
+    const topPicksSection = topPicksMatch[0];
+
+    // Helper function to replace tracking parameter in URL
+    const replaceTrackingParam = (url: string, newValue: string): string => {
+      const trackingParams = [
+        'payload', 'subid', 'sub_id', 'clickid', 'click_id', 'clickID',
+        'campaign', 'campaign_id', 'affid', 'aff_id',
+        'tracking', 'tracker', 'ref', 'reference', 'source',
+        'utm_campaign', 'utm_source', 'utm_medium', 'utm_term', 'utm_content',
+        'pid', 'aid', 'sid', 'cid', 'tid', 'btag', 'tag', 'var',
+        'raw', 'nci', 'nkw', 'lpid', 'bid'
+      ];
+
+      try {
+        const urlObj = new URL(url);
+        
+        // Find which tracking parameter exists
+        for (const param of trackingParams) {
+          if (urlObj.searchParams.has(param)) {
+            urlObj.searchParams.set(param, newValue);
+            return urlObj.toString();
+          }
+        }
+        
+        // Case-insensitive search
+        const allParams = Array.from(urlObj.searchParams.keys());
+        for (const actualParam of allParams) {
+          for (const knownParam of trackingParams) {
+            if (actualParam.toLowerCase() === knownParam.toLowerCase()) {
+              urlObj.searchParams.set(actualParam, newValue);
+              return urlObj.toString();
+            }
+          }
+        }
+      } catch (e) {
+        // Fallback for malformed URLs - use regex
+        for (const param of trackingParams) {
+          const match = url.match(new RegExp(`(${param})=([^&\\s]+)`, 'i'));
+          if (match) {
+            return url.replace(
+              new RegExp(`${match[1]}=[^&\\s]+`, 'i'),
+              `${match[1]}=${newValue}`
+            );
+          }
+        }
+      }
+      
+      return url;
+    };
+
+    // Parse the table and reconstruct with updated links
+    const lines = topPicksSection.split('\n');
+    const updatedLines: string[] = [];
+    
+    for (const line of lines) {
+      // Extract all URLs from the line
+      const urlRegex = /https?:\/\/[^\s<>"'`|)]+/gi;
+      const urls = line.match(urlRegex) || [];
+      
+      let updatedLine = line;
+      
+      // Replace tracking links, remove cloaked links
+      for (const url of urls) {
+        if (url.includes('pokerology.com')) {
+          // Remove cloaked link entirely (leave blank)
+          updatedLine = updatedLine.replace(url, '');
+        } else {
+          // Replace task ID with Sub-ID in tracking link
+          const updatedUrl = replaceTrackingParam(url, subIdValue);
+          updatedLine = updatedLine.replace(url, updatedUrl);
+        }
+      }
+      
+      updatedLines.push(updatedLine);
+    }
+
+    return updatedLines.join('\n').trim();
+  }
+
   app.post("/api/websites/:websiteId/clickup/post-comments", async (req, res) => {
     try {
       const apiKey = process.env.CLICKUP_API_KEY;
@@ -431,8 +535,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
               await storage.markCommentPosted(subId.id);
               skipped.push({ subId: subId.value, taskId: subId.clickupTaskId, reason: "Already commented" });
             } else {
-              // Post the comment
-              const commentText = `Sub-ID: ${subId.value}`;
+              // Generate TOP PICKS LINEUP comment with Sub-ID replacements
+              console.log(`   💬 Generating TOP PICKS LINEUP table for task ${subId.clickupTaskId}...`);
+              const commentText = await generateTopPicksComment(apiKey, subId.clickupTaskId!, subId.value);
+              
               const postResponse = await fetch(
                 `https://api.clickup.com/api/v2/task/${subId.clickupTaskId}/comment`,
                 {
@@ -448,7 +554,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               );
 
               if (postResponse.ok) {
-                console.log(`   ✅ Posted comment to task ${subId.clickupTaskId}: "${commentText}"`);
+                console.log(`   ✅ Posted TOP PICKS LINEUP table to task ${subId.clickupTaskId}`);
                 // Mark comment as posted
                 await storage.markCommentPosted(subId.id);
                 posted.push({ subId: subId.value, taskId: subId.clickupTaskId });
@@ -502,10 +608,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Sub-ID is not linked to a ClickUp task" });
       }
 
-      const commentText = req.body.comment || `Sub-ID: ${subId.value}`;
+      console.log(`\n💬 Generating TOP PICKS LINEUP table with Sub-ID ${subId.value} for task ${subId.clickupTaskId}...`);
 
-      console.log(`\n💬 Posting comment to ClickUp task ${subId.clickupTaskId}: "${commentText}"`);
-
+      // Generate TOP PICKS LINEUP comment with Sub-ID replacements
+      const commentText = await generateTopPicksComment(apiKey, subId.clickupTaskId, subId.value);
+      
       const response = await fetch(
         `https://api.clickup.com/api/v2/task/${subId.clickupTaskId}/comment`,
         {
@@ -527,7 +634,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const result = await response.json();
-      console.log(`   ✅ Comment posted successfully`);
+      console.log(`   ✅ TOP PICKS LINEUP table posted successfully`);
 
       // Mark comment as posted
       await storage.markCommentPosted(req.params.id);
