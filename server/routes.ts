@@ -484,13 +484,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Decode HTML entities in the line first
       const decodedLine = decodeHtmlEntities(line);
       
-      // Extract all URLs from the decoded line - also capture trailing task IDs with spaces
-      // Pattern: URL might be followed by space and task ID like "url= taskId"
-      const urlRegex = /https?:\/\/[^\s<>"'`|)]+(?:\s+[a-zA-Z0-9]+)?/gi;
-      const rawUrls = decodedLine.match(urlRegex) || [];
+      // Extract all URLs from the decoded line
+      const urlRegex = /https?:\/\/[^\s<>"'`|)]+/gi;
+      let urls = decodedLine.match(urlRegex) || [];
       
-      // Clean up URLs: remove trailing whitespace and task ID pattern
-      const urls = rawUrls.map(url => url.replace(/\s+[a-zA-Z0-9]+$/, '').trim());
+      // Handle URLs that end with "=" (incomplete parameter value with space after)
+      urls = urls.map(url => {
+        if (url.endsWith('=')) {
+          // Find this URL in the line and look for the value after it
+          const urlIndex = decodedLine.indexOf(url);
+          if (urlIndex !== -1) {
+            const afterUrl = decodedLine.substring(urlIndex + url.length);
+            // Match the task ID that follows (might have a space before it)
+            const valueMatch = afterUrl.match(/^\s*([a-zA-Z0-9]+)/);
+            if (valueMatch) {
+              return url + valueMatch[1];
+            }
+          }
+        }
+        return url;
+      });
       
       let updatedLine = decodedLine;
       
@@ -836,9 +849,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const topPicksSection = topPicksMatch[0];
         console.log(`   🥇 Found TOP PICKS LINEUP section (${topPicksSection.length} chars)`);
         
-        // Extract all URLs from the section - but also capture trailing task IDs with spaces
-        // Pattern: URL might be followed by space and task ID like "url= taskId"
-        const urlRegex = /https?:\/\/[^\s<>"'`|)]+(?:\s+[a-zA-Z0-9]+)?/gi;
+        // Extract all URLs from the section
+        const urlRegex = /https?:\/\/[^\s<>"'`|)]+/gi;
         const allUrls = topPicksSection.match(urlRegex) || [];
         
         console.log(`   🔍 Found ${allUrls.length} total URL(s) in TOP PICKS section`);
@@ -855,9 +867,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
             continue;
           }
           
-          // Handle case where URL has space before task ID (e.g., "url= taskId")
-          // Remove any trailing whitespace and task ID pattern
-          url = url.replace(/\s+[a-zA-Z0-9]+$/, '');
+          // Handle case where URL ends with "=" (incomplete parameter value with space after)
+          // e.g., "https://example.com/?clickid=" should grab the value after the space
+          if (url.endsWith('=')) {
+            // Find this URL in the text and look for the value after it
+            const urlIndex = topPicksSection.indexOf(url);
+            if (urlIndex !== -1) {
+              const afterUrl = topPicksSection.substring(urlIndex + url.length);
+              // Match the task ID that follows (might have a space before it)
+              const valueMatch = afterUrl.match(/^\s*([a-zA-Z0-9]+)/);
+              if (valueMatch) {
+                url = url + valueMatch[1];
+              }
+            }
+          }
           
           // This is a tracking link
           trackingLinks.push(url);
