@@ -916,6 +916,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
             continue;
           }
           
+          // Special handling for URLs ending with "=" (incomplete parameter)
+          if (url.endsWith('=')) {
+            // Find where this URL appears in the line
+            const urlIndex = line.indexOf(url);
+            if (urlIndex !== -1) {
+              const afterUrl = line.substring(urlIndex + url.length);
+              // Match the value that follows (might have a space before it)
+              const valueMatch = afterUrl.match(/^\s*([a-zA-Z0-9_-]+)/);
+              if (valueMatch) {
+                url = url + valueMatch[1];
+              }
+            }
+          }
+          
           // Find where this URL appears in the line
           const urlIndex = line.indexOf(url);
           if (urlIndex !== -1) {
