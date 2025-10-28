@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Link } from "wouter";
-import { TrendingUp } from "lucide-react";
+import { TrendingUp, GitCompare } from "lucide-react";
 import { AppSidebar } from "@/components/app-sidebar";
 import { WebsiteHeader } from "@/components/website-header";
 import { SubIdTable } from "@/components/subid-table";
@@ -415,12 +415,20 @@ export default function Dashboard() {
           <header className="flex items-center justify-between px-6 py-4 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
             <div className="flex items-center gap-4">
               <SidebarTrigger data-testid="button-sidebar-toggle" />
-              <Button variant="outline" size="sm" asChild data-testid="link-brand-rankings">
-                <Link href="/brand-rankings">
-                  <TrendingUp className="h-4 w-4 mr-2" />
-                  Brand Rankings
-                </Link>
-              </Button>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" asChild data-testid="link-brand-rankings">
+                  <Link href="/brand-rankings">
+                    <TrendingUp className="h-4 w-4 mr-2" />
+                    Brand Rankings
+                  </Link>
+                </Button>
+                <Button variant="outline" size="sm" asChild data-testid="link-task-reconciliation">
+                  <Link href="/task-reconciliation">
+                    <GitCompare className="h-4 w-4 mr-2" />
+                    Task Reconciliation
+                  </Link>
+                </Button>
+              </div>
             </div>
             <ThemeToggle />
           </header>
