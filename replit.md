@@ -140,20 +140,15 @@ Preferred communication style: Simple, everyday language.
 **Comment Posting with TOP PICKS LINEUP Table**
 - Posts entire 🥇 TOP PICKS LINEUP table as ClickUp comment using structured JSON format
 - Replaces ClickUp task ID with Sub-ID in all tracking URLs
-- **Supports both query parameter AND path-based tracking URLs:**
-  - Query parameters: `https://example.com/track?clickid=13991`
-  - Path-based: `https://example.com/click/15/4284/13991/1/`
-- Supports 85+ tracking parameters with case-sensitive matching:
+- Supports 70+ tracking parameters with case-sensitive matching:
   - Core: `payload`, `subid`, `sub_id`, `clickid`, `click_id`, `clickID`
-  - Campaign: `campaign`, `campaign_id`, `c`, `affid`, `aff_id`, `affiliate_id`
-  - Tracking: `tracking`, `tracker`, `ref`, `reference`, `source`, `source_id`
+  - Campaign: `campaign`, `campaign_id`, `affid`, `aff_id`, `affiliate_id`
+  - Tracking: `tracking`, `tracker`, `ref`, `reference`, `source`
   - UTM: `utm_campaign`, `utm_source`, `utm_medium`, `utm_term`, `utm_content`
-  - IDs: `pid`, `aid`, `sid`, `cid`, `tid`, `btag`, `tag`, `var`, `var1`
+  - IDs: `pid`, `aid`, `sid`, `cid`, `tid`, `btag`, `tag`, `var`
   - Advanced: `partner_id`, `offer_id`, `creative_id`, `ad_id`, `transaction_id`
-  - Sub-IDs: `subid1-5`, `aff_sub`, `aff_sub2-5`, `sub1`, `data1-3`, `adv1-2`
+  - Sub-IDs: `subid1-5`, `aff_sub`, `aff_sub2-5`, `data1-3`, `adv1-2`
   - Context: `geo`, `country`, `lang`, `device`, `os`, `browser`, `platform`
-  - Visitor: `visitorId`, `visit_id`, `anid`, `afp`, `p1`
-  - Zones: `zone_id`, `dynamic`, `smc1`, `tdpeh`, `pm_dv`
   - And many more (see server/routes.ts for complete list)
 - Removes cloaked links (pokerology.com URLs) from table
 - Uses ClickUp's structured JSON format with code blocks for proper formatting

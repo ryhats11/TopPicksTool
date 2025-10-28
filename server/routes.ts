@@ -418,7 +418,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     };
 
     // Helper function to replace tracking parameter in URL
-    const replaceTrackingParam = (url: string, newValue: string, oldTaskId: string): string => {
+    const replaceTrackingParam = (url: string, newValue: string): string => {
       // First decode HTML entities
       url = decodeHtmlEntities(url);
       
@@ -450,7 +450,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       try {
         const urlObj = new URL(url);
         
-        // STAGE 1: Replace query parameters
         // Find which tracking parameter exists
         for (const param of trackingParams) {
           if (urlObj.searchParams.has(param)) {
@@ -469,34 +468,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
               wasReplaced = true;
               return urlObj.toString();
             }
-          }
-        }
-
-        // STAGE 2: Replace path-based tracking IDs
-        // Only attempt if no query parameters were replaced
-        // Look for the exact task ID in the path segments
-        if (!wasReplaced && oldTaskId) {
-          const pathSegments = urlObj.pathname.split('/').filter(Boolean);
-          let pathWasModified = false;
-          
-          console.log(`   🔍 PATH-BASED CHECK: Looking for taskId "${oldTaskId}" in path segments:`, pathSegments);
-          
-          // Search for task ID in path segments
-          const updatedSegments = pathSegments.map(segment => {
-            if (segment === oldTaskId) {
-              console.log(`   ✅ FOUND taskId "${oldTaskId}" in path! Replacing with "${newValue}"`);
-              pathWasModified = true;
-              return newValue;
-            }
-            return segment;
-          });
-          
-          if (pathWasModified) {
-            const newUrl = urlObj.protocol + '//' + urlObj.host + '/' + updatedSegments.join('/') + (urlObj.pathname.endsWith('/') ? '/' : '');
-            console.log(`   ✅ PATH REPLACED: ${url} → ${newUrl}`);
-            return newUrl;
-          } else {
-            console.log(`   ⚠️  Task ID "${oldTaskId}" NOT found in path segments`);
           }
         }
       } catch (e) {
@@ -558,7 +529,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           updatedLine = updatedLine.replace(url, '');
         } else {
           // Replace task ID with Sub-ID in tracking link
-          const updatedUrl = replaceTrackingParam(url, subIdValue, taskId);
+          const updatedUrl = replaceTrackingParam(url, subIdValue);
           
           // Debug log for troubleshooting
           if (url.includes('rbyc.fynkelto.com')) {
