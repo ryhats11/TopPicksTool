@@ -346,4 +346,34 @@
   .border.hover-elevate:not(.no-hover-interaction-elevate)::after {
     inset: -1px;
   }
+
+  /* Custom scrollbar styling for affiliate links dropdown */
+  .affiliate-links-scrollbar::-webkit-scrollbar {
+    width: 10px;
+  }
+
+  .affiliate-links-scrollbar::-webkit-scrollbar-track {
+    background: hsl(var(--popover));
+    border-radius: 5px;
+  }
+
+  .affiliate-links-scrollbar::-webkit-scrollbar-thumb {
+    background: hsl(var(--primary) / 0.5);
+    border-radius: 5px;
+    border: 2px solid hsl(var(--popover));
+  }
+
+  .affiliate-links-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--primary) / 0.7);
+  }
+
+  .affiliate-links-scrollbar::-webkit-scrollbar-thumb:active {
+    background: hsl(var(--primary));
+  }
+
+  /* Firefox scrollbar styling */
+  .affiliate-links-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--primary) / 0.5) hsl(var(--popover));
+  }
 }

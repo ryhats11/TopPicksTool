@@ -139,7 +139,7 @@ export function AffiliateLinkDropdown({ clickupTaskId, subIdValue }: AffiliateLi
             <ChevronDown className="h-3 w-3 ml-1.5" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="w-[600px] max-h-[500px] overflow-y-auto">
+        <DropdownMenuContent align="start" className="w-[800px] max-h-[500px] overflow-y-auto affiliate-links-scrollbar">
           {isLoading ? (
             <div className="px-2 py-3 text-xs text-muted-foreground text-center">
               Loading links...
