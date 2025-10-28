@@ -849,12 +849,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Extract all URLs from all sources
       const affiliateLinks: string[] = [];
       
+      // Common affiliate tracking parameter names
+      const affiliateParams = [
+        'payload', 'subid', 'sub_id', 'clickid', 'click_id', 
+        'affid', 'aff_id', 'campaign', 'campaign_id', 'tracking',
+        'tracker', 'ref', 'reference', 'source', 'utm_campaign',
+        'pid', 'aid', 'sid', 'cid', 'tid', 'btag', 'tag'
+      ];
+      
       for (const text of textSources) {
         const urls = extractUrls(text);
         for (const url of urls) {
           const cleanedUrl = cleanUrl(url);
-          // Only include URLs that have the payload parameter
-          if (cleanedUrl.includes('payload=')) {
+          
+          // Include URL if it has ANY affiliate tracking parameter
+          const hasAffiliateParam = affiliateParams.some(param => 
+            cleanedUrl.toLowerCase().includes(`${param}=`)
+          );
+          
+          if (hasAffiliateParam) {
             affiliateLinks.push(cleanedUrl);
           }
         }

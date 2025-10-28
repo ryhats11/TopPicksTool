@@ -16,28 +16,54 @@ interface AffiliateLinkDropdownProps {
   subIdValue: string;
 }
 
-function safeGetPayload(url: string): string | null {
+// Common affiliate tracking parameter names
+const affiliateParams = [
+  'payload', 'subid', 'sub_id', 'clickid', 'click_id', 
+  'affid', 'aff_id', 'campaign', 'campaign_id', 'tracking',
+  'tracker', 'ref', 'reference', 'source', 'utm_campaign',
+  'pid', 'aid', 'sid', 'cid', 'tid', 'btag', 'tag'
+];
+
+function findTrackingParam(url: string): { param: string; value: string } | null {
   try {
     const urlObj = new URL(url);
-    return urlObj.searchParams.get('payload');
+    for (const param of affiliateParams) {
+      const value = urlObj.searchParams.get(param);
+      if (value) {
+        return { param, value };
+      }
+    }
   } catch (e) {
     // Fallback for malformed URLs - use regex
-    const match = url.match(/payload=([^&\s]+)/);
-    return match ? match[1] : null;
+    for (const param of affiliateParams) {
+      const match = url.match(new RegExp(`${param}=([^&\\s]+)`, 'i'));
+      if (match) {
+        return { param, value: match[1] };
+      }
+    }
   }
+  return null;
+}
+
+function safeGetPayload(url: string): string | null {
+  const tracking = findTrackingParam(url);
+  return tracking ? tracking.value : null;
 }
 
 function safeReplacePayload(url: string, newPayload: string): string {
+  const tracking = findTrackingParam(url);
+  if (!tracking) return url;
+  
   try {
     const urlObj = new URL(url);
-    urlObj.searchParams.set('payload', newPayload);
+    urlObj.searchParams.set(tracking.param, newPayload);
     return urlObj.toString();
   } catch (e) {
     // Fallback for malformed/relative URLs
-    if (url.includes('payload=')) {
-      return url.replace(/payload=[^&\s]+/, `payload=${newPayload}`);
-    }
-    return url;
+    return url.replace(
+      new RegExp(`${tracking.param}=[^&\\s]+`, 'i'), 
+      `${tracking.param}=${newPayload}`
+    );
   }
 }
 
@@ -86,7 +112,7 @@ export function AffiliateLinkDropdown({ clickupTaskId, subIdValue }: AffiliateLi
             <ChevronDown className="h-3 w-3 ml-1.5" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="w-96">
+        <DropdownMenuContent align="start" className="w-[600px] max-h-[500px] overflow-y-auto">
           {isLoading ? (
             <div className="px-2 py-3 text-xs text-muted-foreground text-center">
               Loading links...
@@ -102,10 +128,9 @@ export function AffiliateLinkDropdown({ clickupTaskId, subIdValue }: AffiliateLi
             </div>
           ) : (
             <>
-              <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
-                Click to copy with your Sub-ID
+              <div className="px-3 py-2 text-xs font-semibold text-muted-foreground border-b sticky top-0 bg-popover">
+                {affiliateLinks.length} Affiliate Link{affiliateLinks.length !== 1 ? 's' : ''} - Click to copy with your Sub-ID
               </div>
-              <DropdownMenuSeparator />
               {affiliateLinks.map((link, index) => {
                 const modifiedLink = safeReplacePayload(link, subIdValue);
                 const originalPayload = safeGetPayload(link);
@@ -115,23 +140,23 @@ export function AffiliateLinkDropdown({ clickupTaskId, subIdValue }: AffiliateLi
                   <DropdownMenuItem
                     key={index}
                     onClick={() => handleCopyLink(link)}
-                    className="flex items-start gap-2 py-2 cursor-pointer"
+                    className="flex items-start gap-2 py-3 px-3 cursor-pointer border-b last:border-b-0"
                     data-testid={`menuitem-affiliate-link-${index}`}
                   >
                     <div className="flex-1 min-w-0">
-                      <div className="text-xs font-mono truncate text-foreground">
+                      <div className="text-xs font-mono break-all text-foreground leading-relaxed">
                         {modifiedLink}
                       </div>
                       {originalPayload && (
-                        <div className="text-xs text-muted-foreground mt-0.5">
-                          Original payload: {originalPayload}
+                        <div className="text-xs text-muted-foreground mt-1.5 font-medium">
+                          Original: {originalPayload}
                         </div>
                       )}
                     </div>
                     {isCopied ? (
-                      <Check className="h-3.5 w-3.5 text-primary flex-shrink-0 mt-0.5" />
+                      <Check className="h-4 w-4 text-primary flex-shrink-0 mt-0.5" />
                     ) : (
-                      <Copy className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-0.5" />
+                      <Copy className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
                     )}
                   </DropdownMenuItem>
                 );
