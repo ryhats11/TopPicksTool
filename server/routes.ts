@@ -406,15 +406,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     const topPicksSection = topPicksMatch[0];
 
+    // Helper function to decode HTML entities in URLs
+    const decodeHtmlEntities = (text: string): string => {
+      return text
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'");
+    };
+
     // Helper function to replace tracking parameter in URL
     const replaceTrackingParam = (url: string, newValue: string): string => {
+      // First decode HTML entities
+      url = decodeHtmlEntities(url);
+      
       const trackingParams = [
         'payload', 'subid', 'sub_id', 'clickid', 'click_id', 'clickID',
         'campaign', 'campaign_id', 'affid', 'aff_id',
         'tracking', 'tracker', 'ref', 'reference', 'source',
         'utm_campaign', 'utm_source', 'utm_medium', 'utm_term', 'utm_content',
         'pid', 'aid', 'sid', 'cid', 'tid', 'btag', 'tag', 'var',
-        'raw', 'nci', 'nkw', 'lpid', 'bid', 'b', 'a', 's'
+        'raw', 'nci', 'nkw', 'lpid', 'bid', 'b', 'a', 's', 'dyn_id'
       ];
 
       let wasReplaced = false;
@@ -468,11 +481,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const updatedLines: string[] = [];
     
     for (const line of lines) {
-      // Extract all URLs from the line
-      const urlRegex = /https?:\/\/[^\s<>"'`|)]+/gi;
-      const urls = line.match(urlRegex) || [];
+      // Decode HTML entities in the line first
+      const decodedLine = decodeHtmlEntities(line);
       
-      let updatedLine = line;
+      // Extract all URLs from the decoded line
+      const urlRegex = /https?:\/\/[^\s<>"'`|)]+/gi;
+      const urls = decodedLine.match(urlRegex) || [];
+      
+      let updatedLine = decodedLine;
       
       // Replace tracking links, remove cloaked links
       for (const url of urls) {
