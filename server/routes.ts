@@ -535,8 +535,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
 
     // Wrap the table in a code block to preserve formatting in ClickUp
+    // Use 'text' language specifier to prevent markdown interpretation
     const tableContent = updatedLines.join('\n').trim();
-    const finalComment = '```\n' + tableContent + '\n```';
+    const finalComment = '```text\n' + tableContent + '\n```';
     
     // Debug: Log the exact comment being generated
     console.log(`   📝 Generated comment preview (first 500 chars):`);
