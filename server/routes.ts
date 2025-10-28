@@ -414,8 +414,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         'tracking', 'tracker', 'ref', 'reference', 'source',
         'utm_campaign', 'utm_source', 'utm_medium', 'utm_term', 'utm_content',
         'pid', 'aid', 'sid', 'cid', 'tid', 'btag', 'tag', 'var',
-        'raw', 'nci', 'nkw', 'lpid', 'bid'
+        'raw', 'nci', 'nkw', 'lpid', 'bid', 'b', 'a', 's'
       ];
+
+      let wasReplaced = false;
 
       try {
         const urlObj = new URL(url);
@@ -424,6 +426,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         for (const param of trackingParams) {
           if (urlObj.searchParams.has(param)) {
             urlObj.searchParams.set(param, newValue);
+            wasReplaced = true;
             return urlObj.toString();
           }
         }
@@ -434,12 +437,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
           for (const knownParam of trackingParams) {
             if (actualParam.toLowerCase() === knownParam.toLowerCase()) {
               urlObj.searchParams.set(actualParam, newValue);
+              wasReplaced = true;
               return urlObj.toString();
             }
           }
         }
       } catch (e) {
-        // Fallback for malformed URLs - use regex
+        // Parsing failed, fall through to regex
+      }
+      
+      // If URL parsing didn't find a tracked parameter, try regex fallback
+      // This handles malformed URLs like "?s=valuea=valueb=oldTaskId"
+      if (!wasReplaced) {
         for (const param of trackingParams) {
           const match = url.match(new RegExp(`(${param})=([^&\\s]+)`, 'i'));
           if (match) {
