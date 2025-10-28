@@ -43,7 +43,7 @@ async function importFromExcel() {
   for (const geoCol of geoColumns) {
     const rankings: Array<{ brand: string; rpc: number; position: number }> = [];
     
-    for (let rowIdx = 1; rowIdx < Math.min(data.length, 50); rowIdx++) { // Limit to first 50 rows for top rankings
+    for (let rowIdx = 1; rowIdx < data.length; rowIdx++) { // Process all rows
       const row = data[rowIdx];
       const position = row[0];
       if (!position || typeof position !== 'number') continue;

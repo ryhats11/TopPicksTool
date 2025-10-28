@@ -50,6 +50,8 @@ export default function BrandRankings() {
   const [editingBrand, setEditingBrand] = useState<Brand | null>(null);
   const [editingRankings, setEditingRankings] = useState<Map<number, RankingWithBrand>>(new Map());
   const [isEditMode, setIsEditMode] = useState(false);
+  const [geoSearchQuery, setGeoSearchQuery] = useState("");
+  const [brandSearchQuery, setBrandSearchQuery] = useState("");
 
   // Fetch GEOs
   const { data: geos = [], isLoading: isLoadingGeos } = useQuery<Geo[]>({
@@ -68,6 +70,21 @@ export default function BrandRankings() {
   });
 
   const selectedGeo = geos.find((g) => g.id === selectedGeoId);
+
+  // Filter GEOs by search query
+  const filteredGeos = geos.filter((geo) => {
+    const query = geoSearchQuery.toLowerCase();
+    return (
+      geo.name.toLowerCase().includes(query) ||
+      geo.code.toLowerCase().includes(query)
+    );
+  });
+
+  // Filter brands by search query
+  const filteredBrands = brands.filter((brand) => {
+    const query = brandSearchQuery.toLowerCase();
+    return brand.name.toLowerCase().includes(query);
+  });
 
   // Combine rankings with brand info
   const rankingsWithBrands: RankingWithBrand[] = rankings.map((ranking) => ({
@@ -311,16 +328,31 @@ export default function BrandRankings() {
                 <p className="text-xs text-muted-foreground mt-1">Manage top 10 brands by GEO</p>
               </div>
 
+              <div className="p-4 border-b">
+                <Input
+                  type="text"
+                  placeholder="Search GEOs..."
+                  value={geoSearchQuery}
+                  onChange={(e) => setGeoSearchQuery(e.target.value)}
+                  className="w-full"
+                  data-testid="input-search-geos"
+                />
+              </div>
+
               <ScrollArea className="flex-1 p-4">
                 <div className="space-y-2">
                   {isLoadingGeos ? (
                     <div className="text-sm text-muted-foreground p-4">Loading GEOs...</div>
-                  ) : geos.length === 0 ? (
+                  ) : filteredGeos.length === 0 && geoSearchQuery ? (
+                    <div className="text-sm text-muted-foreground p-4">
+                      No GEOs match "{geoSearchQuery}"
+                    </div>
+                  ) : filteredGeos.length === 0 ? (
                     <div className="text-sm text-muted-foreground p-4">
                       No GEOs yet. Add your first GEO below.
                     </div>
                   ) : (
-                    geos.map((geo) => (
+                    filteredGeos.map((geo) => (
                       <div
                         key={geo.id}
                         className={`flex items-center justify-between p-3 rounded-md cursor-pointer hover-elevate ${
@@ -680,16 +712,29 @@ export default function BrandRankings() {
               </Button>
             </div>
 
+            <Input
+              type="text"
+              placeholder="Search brands..."
+              value={brandSearchQuery}
+              onChange={(e) => setBrandSearchQuery(e.target.value)}
+              className="w-full"
+              data-testid="input-search-brands"
+            />
+
             <ScrollArea className="h-96 border rounded-md p-4">
               {isLoadingBrands ? (
                 <div className="text-sm text-muted-foreground">Loading brands...</div>
-              ) : brands.length === 0 ? (
+              ) : filteredBrands.length === 0 && brandSearchQuery ? (
+                <div className="text-sm text-muted-foreground">
+                  No brands match "{brandSearchQuery}"
+                </div>
+              ) : filteredBrands.length === 0 ? (
                 <div className="text-sm text-muted-foreground">
                   No brands yet. Add your first brand above.
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {brands.map((brand) => (
+                  {filteredBrands.map((brand) => (
                     <div
                       key={brand.id}
                       className="flex items-center justify-between p-3 rounded-md border"
