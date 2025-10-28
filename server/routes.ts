@@ -863,10 +863,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Helper function to extract URLs with brand info from "Tracking Link with ClickUp task ID" column
-      const extractUrlsFromTopPicks = (text: string): Array<{url: string, brand: string, position: string}> => {
+      const extractUrlsFromTopPicks = (text: string, taskId: string): Array<{url: string, brand: string, position: string, sourceTaskId: string}> => {
         if (!text) return [];
         
-        const foundLinks: Array<{url: string, brand: string, position: string}> = [];
+        const foundLinks: Array<{url: string, brand: string, position: string, sourceTaskId: string}> = [];
         
         // Look for "🥇 TOP PICKS LINEUP" section - be more generous with the ending
         const topPicksMatch = text.match(/🥇\s*TOP PICKS LINEUP[\s\S]*?(?=\n#{1,2}\s[^#]|$)/i);
@@ -916,12 +916,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           console.log(`   ✅ Tracking link ${trackingLinks.length}: ${url.substring(0, 60)}...`);
         }
         
-        // Convert to the expected format
+        // Convert to the expected format with source task ID
         for (let i = 0; i < trackingLinks.length; i++) {
           foundLinks.push({
             url: trackingLinks[i],
             brand: '',
-            position: (i + 1).toString()
+            position: (i + 1).toString(),
+            sourceTaskId: taskId  // Preserve the original ClickUp task ID
           });
         }
         
@@ -944,28 +945,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const taskDescription = taskData.description || taskData.text_content || '';
       
       // Extract URLs from the TOP PICKS LINEUP section
-      const linksWithInfo = extractUrlsFromTopPicks(taskDescription);
+      const linksWithInfo = extractUrlsFromTopPicks(taskDescription, taskId);
       
       console.log(`   📋 Found ${linksWithInfo.length} affiliate link(s) from TOP PICKS section`);
       
       // Clean URLs and preserve brand/position info
-      const affiliateLinksWithInfo: Array<{url: string, brand: string, position: string}> = [];
+      const affiliateLinksWithInfo: Array<{url: string, brand: string, position: string, sourceTaskId: string}> = [];
       
       // Debug: log all extracted links before filtering
-      console.log(`   🔍 Raw extracted links:`, linksWithInfo.map((link: {url: string, brand: string, position: string}) => ({
+      console.log(`   🔍 Raw extracted links:`, linksWithInfo.map((link: {url: string, brand: string, position: string, sourceTaskId: string}) => ({
         url: link.url.substring(0, 50) + '...',
         brand: link.brand,
-        position: link.position
+        position: link.position,
+        sourceTaskId: link.sourceTaskId
       })));
       
       for (const linkInfo of linksWithInfo) {
         const cleanedUrl = cleanUrl(linkInfo.url);
         
-        // Include all links
+        // Include all links with source task ID preserved
         affiliateLinksWithInfo.push({
           url: cleanedUrl,
           brand: linkInfo.brand,
-          position: linkInfo.position
+          position: linkInfo.position,
+          sourceTaskId: linkInfo.sourceTaskId
         });
       }
 

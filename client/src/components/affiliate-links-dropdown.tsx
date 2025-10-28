@@ -115,7 +115,7 @@ export function AffiliateLinkDropdown({ clickupTaskId, subIdValue }: AffiliateLi
   const [isOpen, setIsOpen] = useState(false);
   const { toast } = useToast();
 
-  const { data, isLoading, error } = useQuery<{ links: Array<{url: string, brand: string, position: string}> }>({
+  const { data, isLoading, error } = useQuery<{ links: Array<{url: string, brand: string, position: string, sourceTaskId: string}> }>({
     queryKey: ['/api/clickup/task', clickupTaskId, 'affiliate-links'],
     enabled: !!clickupTaskId && isOpen,
   });
@@ -177,7 +177,6 @@ export function AffiliateLinkDropdown({ clickupTaskId, subIdValue }: AffiliateLi
               {affiliateLinks.map((linkData, index) => {
                 const link = linkData.url;
                 const modifiedLink = safeReplacePayload(link, subIdValue);
-                const originalPayload = safeGetPayload(link);
                 const isCopied = copiedUrl === link;
                 const displayNumber = linkData.position || (index + 1).toString();
                 
@@ -201,9 +200,9 @@ export function AffiliateLinkDropdown({ clickupTaskId, subIdValue }: AffiliateLi
                         <div className="text-xs font-mono break-all text-muted-foreground leading-relaxed">
                           {modifiedLink}
                         </div>
-                        {originalPayload && (
+                        {linkData.sourceTaskId && (
                           <div className="text-xs text-muted-foreground mt-1.5 font-medium opacity-70">
-                            Original: {originalPayload}
+                            Original: {linkData.sourceTaskId}
                           </div>
                         )}
                       </div>
