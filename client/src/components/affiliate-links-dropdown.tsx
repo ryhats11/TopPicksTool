@@ -16,6 +16,16 @@ interface AffiliateLinkDropdownProps {
   subIdValue: string;
 }
 
+// Helper to decode HTML entities
+function decodeHtmlEntities(text: string): string {
+  return text
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'");
+}
+
 // Common affiliate tracking parameter names (comprehensive list)
 const affiliateParams = [
   // Primary tracking params
@@ -28,11 +38,14 @@ const affiliateParams = [
   'utm_campaign', 'utm_source', 'utm_medium', 'utm_term', 'utm_content',
   // Miscellaneous
   'pid', 'aid', 'sid', 'cid', 'tid', 'btag', 'tag', 'var',
-  'raw', 'nci', 'nkw', 'lpid', 'bid'
+  'raw', 'nci', 'nkw', 'lpid', 'bid', 'b', 'a', 's', 'dyn_id'
 ];
 
 function findTrackingParam(url: string): { param: string; value: string } | null {
   if (!url) return null;
+  
+  // Decode HTML entities first
+  url = decodeHtmlEntities(url);
   
   try {
     const urlObj = new URL(url);
@@ -58,17 +71,17 @@ function findTrackingParam(url: string): { param: string; value: string } | null
       }
     }
   } catch (e) {
-    // Fallback for malformed URLs - use regex with case-insensitive matching
-    for (const param of affiliateParams) {
-      const match = url.match(new RegExp(`${param}=([^&\\s]+)`, 'i'));
-      if (match) {
-        // Extract the actual parameter name from the URL to preserve case
-        const actualParamMatch = url.match(new RegExp(`(${param})=`, 'i'));
-        const actualParam = actualParamMatch ? actualParamMatch[1] : param;
-        return { param: actualParam, value: match[1] };
-      }
+    // Parsing failed, fall through to regex
+  }
+  
+  // Fallback for malformed URLs or when no param was found - use regex
+  for (const param of affiliateParams) {
+    const match = url.match(new RegExp(`(${param})=([^&\\s]+)`, 'i'));
+    if (match) {
+      return { param: match[1], value: match[2] };
     }
   }
+  
   return null;
 }
 
@@ -78,6 +91,9 @@ function safeGetPayload(url: string): string | null {
 }
 
 function safeReplacePayload(url: string, newPayload: string): string {
+  // Decode HTML entities first
+  url = decodeHtmlEntities(url);
+  
   const tracking = findTrackingParam(url);
   if (!tracking) return url;
   
@@ -86,7 +102,7 @@ function safeReplacePayload(url: string, newPayload: string): string {
     urlObj.searchParams.set(tracking.param, newPayload);
     return urlObj.toString();
   } catch (e) {
-    // Fallback for malformed/relative URLs
+    // Fallback for malformed/relative URLs - use regex
     return url.replace(
       new RegExp(`${tracking.param}=[^&\\s]+`, 'i'), 
       `${tracking.param}=${newPayload}`
