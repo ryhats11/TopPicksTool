@@ -832,13 +832,23 @@ export default function BrandRankings() {
                           Additional brands for this GEO (not in top 10)
                         </p>
                       </div>
-                      <Dialog>
-                        <DialogTrigger asChild>
-                          <Button variant="outline" size="sm" data-testid="button-add-other-brand">
-                            <Plus className="h-4 w-4 mr-2" />
-                            Add Brand
-                          </Button>
-                        </DialogTrigger>
+                      <div className="flex gap-2">
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => setIsBulkAddDialogOpen(true)} 
+                          data-testid="button-bulk-add-other-brands"
+                        >
+                          <Plus className="h-4 w-4 mr-2" />
+                          Bulk Add
+                        </Button>
+                        <Dialog>
+                          <DialogTrigger asChild>
+                            <Button variant="outline" size="sm" data-testid="button-add-other-brand">
+                              <Plus className="h-4 w-4 mr-2" />
+                              Add Brand
+                            </Button>
+                          </DialogTrigger>
                         <DialogContent data-testid="dialog-add-other-brand">
                           <DialogHeader>
                             <DialogTitle>Add Brand to GEO</DialogTitle>
@@ -876,7 +886,8 @@ export default function BrandRankings() {
                             </div>
                           </div>
                         </DialogContent>
-                      </Dialog>
+                        </Dialog>
+                      </div>
                     </div>
 
                     {isLoadingRankings || isLoadingBrands ? (
