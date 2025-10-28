@@ -442,7 +442,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         'adv1', 'adv2', 'a_aid', 'data1', 'data2', 'data3',
         // Additional tracking parameters
         'anid', 'afp', 'visitorId', 'zone_id', 'smc1', 'sub1', 'p1',
-        'tdpeh', 'visit_id', 'pm_dv', 'dynamic', 'var1'
+        'tdpeh', 'visit_id', 'pm_dv', 'dynamic', 'var1', 'zoneid'
       ];
 
       let wasReplaced = false;
