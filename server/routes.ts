@@ -380,7 +380,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Helper function to generate TOP PICKS LINEUP comment with Sub-ID replacements
-  async function generateTopPicksComment(apiKey: string, taskId: string, subIdValue: string): Promise<string> {
+  // Returns ClickUp structured comment format (not plain text)
+  async function generateTopPicksComment(apiKey: string, taskId: string, subIdValue: string): Promise<any> {
     // Fetch the task to get the description with TOP PICKS LINEUP table
     const taskResponse = await fetch(`https://api.clickup.com/api/v2/task/${taskId}`, {
       headers: {
@@ -486,10 +487,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Extract all URLs from the decoded line
       const urlRegex = /https?:\/\/[^\s<>"'`|)]+/gi;
-      let urls = decodedLine.match(urlRegex) || [];
+      const rawUrls = decodedLine.match(urlRegex) || [];
       
       // Handle URLs that end with "=" (incomplete parameter value with space after)
-      urls = urls.map(url => {
+      const urls = rawUrls.map(url => {
         if (url.endsWith('=')) {
           // Find this URL in the line and look for the value after it
           const urlIndex = decodedLine.indexOf(url);
@@ -534,16 +535,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
       updatedLines.push(updatedLine);
     }
 
-    // Wrap the table in a code block to preserve formatting in ClickUp
-    // Use 'text' language specifier to prevent markdown interpretation
+    // ClickUp comments don't support markdown tables or triple backticks
+    // Instead, use ClickUp's structured JSON format with a code block
     const tableContent = updatedLines.join('\n').trim();
-    const finalComment = '```text\n' + tableContent + '\n```';
+    
+    // Create structured JSON format for ClickUp code block
+    const structuredComment = {
+      comment: [
+        {
+          text: tableContent,
+          attributes: {}
+        },
+        {
+          text: "\n",
+          attributes: {
+            "code-block": {
+              "code-block": "plain"
+            }
+          }
+        }
+      ]
+    };
     
     // Debug: Log the exact comment being generated
     console.log(`   📝 Generated comment preview (first 500 chars):`);
-    console.log(finalComment.substring(0, 500));
+    console.log(JSON.stringify(structuredComment, null, 2).substring(0, 500));
     
-    return finalComment;
+    return structuredComment;
   }
 
   app.post("/api/websites/:websiteId/clickup/post-comments", async (req, res) => {
@@ -600,7 +618,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             } else {
               // Generate TOP PICKS LINEUP comment with Sub-ID replacements
               console.log(`   💬 Generating TOP PICKS LINEUP table for task ${subId.clickupTaskId}...`);
-              const commentText = await generateTopPicksComment(apiKey, subId.clickupTaskId!, subId.value);
+              const commentData = await generateTopPicksComment(apiKey, subId.clickupTaskId!, subId.value);
               
               const postResponse = await fetch(
                 `https://api.clickup.com/api/v2/task/${subId.clickupTaskId}/comment`,
@@ -610,9 +628,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                     'Authorization': apiKey,
                     'Content-Type': 'application/json',
                   },
-                  body: JSON.stringify({
-                    comment_text: commentText,
-                  }),
+                  body: JSON.stringify(commentData),
                 }
               );
 
@@ -674,7 +690,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`\n💬 Generating TOP PICKS LINEUP table with Sub-ID ${subId.value} for task ${subId.clickupTaskId}...`);
 
       // Generate TOP PICKS LINEUP comment with Sub-ID replacements
-      const commentText = await generateTopPicksComment(apiKey, subId.clickupTaskId, subId.value);
+      const commentData = await generateTopPicksComment(apiKey, subId.clickupTaskId, subId.value);
       
       const response = await fetch(
         `https://api.clickup.com/api/v2/task/${subId.clickupTaskId}/comment`,
@@ -684,9 +700,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             'Authorization': apiKey,
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({
-            comment_text: commentText,
-          }),
+          body: JSON.stringify(commentData),
         }
       );
 
