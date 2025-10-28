@@ -498,6 +498,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         } else {
           // Replace task ID with Sub-ID in tracking link
           const updatedUrl = replaceTrackingParam(url, subIdValue);
+          
+          // Debug log for troubleshooting
+          if (url.includes('rbyc.fynkelto.com')) {
+            console.log(`   🔍 DEBUG URL #15:`);
+            console.log(`      Original: ${url}`);
+            console.log(`      Updated:  ${updatedUrl}`);
+          }
+          
           updatedLine = updatedLine.replace(url, updatedUrl);
         }
       }
