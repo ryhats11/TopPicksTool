@@ -665,204 +665,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Helper function to extract URLs with brand info from "Tracking Link with ClickUp task ID" column
-      const extractUrlsFromTrackingColumn = (text: string): Array<{url: string, brand: string, position: string}> => {
+      const extractUrlsFromTopPicks = (text: string): Array<{url: string, brand: string, position: string}> => {
         if (!text) return [];
         
         const foundLinks: Array<{url: string, brand: string, position: string}> = [];
         
         // Look for "🥇 TOP PICKS LINEUP" section
         const topPicksMatch = text.match(/🥇\s*TOP PICKS LINEUP[\s\S]*?(?=\n#{1,3}\s|\n---|\Z)/i);
-        const textToSearch = topPicksMatch ? topPicksMatch[0] : text;
-        
-        if (topPicksMatch) {
-          console.log(`   🥇 Found TOP PICKS LINEUP section (${textToSearch.length} chars)`);
+        if (!topPicksMatch) {
+          console.log(`   ⚠️  No TOP PICKS LINEUP section found`);
+          return foundLinks;
         }
         
-        // Strategy 1: Parse markdown tables with "Tracking Link with ClickUp task ID" column
-        const lines = textToSearch.split('\n');
-        let trackingColumnIndex = -1;
-        let brandColumnIndex = -1;
-        let positionColumnIndex = -1;
-        let inTable = false;
+        const topPicksSection = topPicksMatch[0];
+        console.log(`   🥇 Found TOP PICKS LINEUP section (${topPicksSection.length} chars)`);
         
-        for (let i = 0; i < lines.length; i++) {
-          const line = lines[i].trim();
+        // Extract all URLs from this section with affiliate tracking parameters
+        const affiliateParams = [
+          'payload', 'subid', 'sub_id', 'clickid', 'click_id', 
+          'affid', 'aff_id', 'campaign', 'campaign_id', 'tracking',
+          'tracker', 'ref', 'reference', 'source', 'utm_campaign',
+          'pid', 'aid', 'sid', 'cid', 'tid', 'btag', 'tag', 'var'
+        ];
+        
+        const urlRegex = /https?:\/\/[^\s<>"'`|)]+/gi;
+        const urls = topPicksSection.match(urlRegex) || [];
+        
+        console.log(`   🔍 Found ${urls.length} total URL(s) in TOP PICKS section`);
+        
+        // Filter for affiliate links
+        let position = 1;
+        for (const url of urls) {
+          const hasAffiliateParam = affiliateParams.some(param => 
+            url.toLowerCase().includes(`${param}=`)
+          );
           
-          // Check if this is the header row with our specific column
-          if (line.includes('|') && line.toLowerCase().includes('tracking link')) {
-            const headers = line.split('|').map(h => h.trim());
-            
-            // Find the tracking column
-            trackingColumnIndex = headers.findIndex(h => {
-              const lowerH = h.toLowerCase();
-              return lowerH.includes('tracking link') && lowerH.includes('clickup');
+          if (hasAffiliateParam) {
+            foundLinks.push({
+              url,
+              brand: '',  // We'll try to extract brand from nearby text later
+              position: position.toString()
             });
-            
-            if (trackingColumnIndex === -1) {
-              trackingColumnIndex = headers.findIndex(h => 
-                h.toLowerCase().includes('tracking link')
-              );
-            }
-            
-            // Find the brand column
-            brandColumnIndex = headers.findIndex(h => 
-              h.toLowerCase().includes('brand')
-            );
-            
-            // Find the position column
-            positionColumnIndex = headers.findIndex(h => 
-              h.toLowerCase().includes('position')
-            );
-            
-            if (trackingColumnIndex >= 0) {
-              inTable = true;
-              console.log(`   📊 Found "Tracking Link with ClickUp task ID" column at index ${trackingColumnIndex}`);
-              console.log(`   🏷️  Found "Brand" column at index ${brandColumnIndex}`);
-              console.log(`   #️⃣  Found "Position" column at index ${positionColumnIndex}`);
-            }
-            continue;
-          }
-          
-          // If we found the tracking column, extract URLs from that column in data rows
-          if (inTable && trackingColumnIndex >= 0 && line.includes('|')) {
-            // Skip separator rows
-            if (line.match(/^[\s|:-]+$/)) continue;
-            
-            const cells = line.split('|').map(c => c.trim());
-            if (cells.length > trackingColumnIndex) {
-              const cellContent = cells[trackingColumnIndex];
-              
-              // Extract ALL URLs from this cell
-              const urlRegex = /https?:\/\/[^\s<>"'`|]+/gi;
-              const urls = cellContent.match(urlRegex) || [];
-              
-              if (urls.length > 0) {
-                const brand = brandColumnIndex >= 0 && cells[brandColumnIndex] ? cells[brandColumnIndex] : '';
-                const position = positionColumnIndex >= 0 && cells[positionColumnIndex] ? cells[positionColumnIndex] : '';
-                
-                for (const url of urls) {
-                  foundLinks.push({ url, brand, position });
-                }
-                
-                console.log(`   ✅ Extracted ${urls.length} URL(s) from row ${i} - Brand: "${brand}", Position: "${position}"`);
-              }
-            }
-          }
-          
-          // Stop if we hit another section or table ends
-          if (inTable && line && !line.includes('|') && line.match(/^#{1,3}\s/)) {
-            inTable = false;
-          }
-        }
-        
-        // Strategy 2: Parse HTML tables in the TOP PICKS section
-        const htmlTableRegex = /<table[\s\S]*?<\/table>/gi;
-        const tables = textToSearch.match(htmlTableRegex) || [];
-        
-        for (const table of tables) {
-          const headerRegex = /<th[^>]*>([\s\S]*?)<\/th>/gi;
-          const headers: string[] = [];
-          let headerMatch;
-          
-          while ((headerMatch = headerRegex.exec(table)) !== null) {
-            const headerText = headerMatch[1].replace(/<[^>]+>/g, '').trim();
-            headers.push(headerText);
-          }
-          
-          // Find columns
-          let trackingColIdx = headers.findIndex(h => {
-            const lowerH = h.toLowerCase();
-            return lowerH.includes('tracking link') && lowerH.includes('clickup');
-          });
-          
-          if (trackingColIdx === -1) {
-            trackingColIdx = headers.findIndex(h => 
-              h.toLowerCase().includes('tracking link')
-            );
-          }
-          
-          const brandColIdx = headers.findIndex(h => h.toLowerCase().includes('brand'));
-          const positionColIdx = headers.findIndex(h => h.toLowerCase().includes('position'));
-          
-          if (trackingColIdx >= 0) {
-            console.log(`   📊 Found HTML table with tracking column at index ${trackingColIdx}`);
-            
-            const rowRegex = /<tr[^>]*>([\s\S]*?)<\/tr>/gi;
-            let rowMatch;
-            
-            while ((rowMatch = rowRegex.exec(table)) !== null) {
-              const rowContent = rowMatch[1];
-              const cellRegex = /<td[^>]*>([\s\S]*?)<\/td>/gi;
-              const cells: string[] = [];
-              let cellMatch;
-              
-              while ((cellMatch = cellRegex.exec(rowContent)) !== null) {
-                cells.push(cellMatch[1]);
-              }
-              
-              if (cells.length > trackingColIdx) {
-                const urlRegex = /https?:\/\/[^\s<>"']+/gi;
-                const urls = cells[trackingColIdx].match(urlRegex) || [];
-                const brand = brandColIdx >= 0 && cells[brandColIdx] ? cells[brandColIdx].replace(/<[^>]+>/g, '').trim() : '';
-                const position = positionColIdx >= 0 && cells[positionColIdx] ? cells[positionColIdx].replace(/<[^>]+>/g, '').trim() : '';
-                
-                for (const url of urls) {
-                  foundLinks.push({ url, brand, position });
-                }
-              }
-            }
+            position++;
+            console.log(`   ✅ Found affiliate link ${position - 1}: ${url.substring(0, 60)}...`);
           }
         }
         
         return foundLinks;
-      };
-
-      // Helper function to extract URLs from text with multiple strategies
-      const extractUrls = (text: string): string[] => {
-        if (!text) return [];
-        
-        const foundUrls: string[] = [];
-        
-        // First, try targeted extraction from "Tracking Link with ClickUp task ID" column
-        const trackingLinksWithInfo = extractUrlsFromTrackingColumn(text);
-        foundUrls.push(...trackingLinksWithInfo.map(link => link.url));
-        
-        // Strategy 1: Standard URL regex (catches most http/https URLs)
-        const standardUrlRegex = /https?:\/\/[^\s<>"'`()[\]{}|]+/gi;
-        const standardMatches = text.match(standardUrlRegex) || [];
-        foundUrls.push(...standardMatches);
-        
-        // Strategy 2: URL-encoded or HTML-escaped URLs
-        const decodedText = text
-          .replace(/&amp;/g, '&')
-          .replace(/&lt;/g, '<')
-          .replace(/&gt;/g, '>')
-          .replace(/&quot;/g, '"')
-          .replace(/&#39;/g, "'")
-          .replace(/%3A/gi, ':')
-          .replace(/%2F/gi, '/')
-          .replace(/%3F/gi, '?')
-          .replace(/%3D/gi, '=')
-          .replace(/%26/gi, '&');
-        
-        const decodedMatches = decodedText.match(standardUrlRegex) || [];
-        foundUrls.push(...decodedMatches);
-        
-        // Strategy 3: Markdown link format [text](url)
-        const markdownRegex = /\[([^\]]+)\]\((https?:\/\/[^)]+)\)/gi;
-        let markdownMatch;
-        while ((markdownMatch = markdownRegex.exec(text)) !== null) {
-          foundUrls.push(markdownMatch[2]);
-        }
-        
-        // Strategy 4: URLs wrapped in angle brackets <url>
-        const angleBracketRegex = /<(https?:\/\/[^>]+)>/gi;
-        let angleBracketMatch;
-        while ((angleBracketMatch = angleBracketRegex.exec(text)) !== null) {
-          foundUrls.push(angleBracketMatch[1]);
-        }
-        
-        return foundUrls;
       };
 
       // Helper function to clean and validate URLs
@@ -879,25 +728,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // ONLY use task description - this contains the TOP PICKS LINEUP table
       const taskDescription = taskData.description || taskData.text_content || '';
       
-      // Extract URLs ONLY from the "Tracking Link with ClickUp task ID" column in the table
-      const linksWithInfo = extractUrlsFromTrackingColumn(taskDescription);
+      // Extract URLs from the TOP PICKS LINEUP section
+      const linksWithInfo = extractUrlsFromTopPicks(taskDescription);
       
-      console.log(`   📋 Found ${linksWithInfo.length} link(s) from table extraction`);
+      console.log(`   📋 Found ${linksWithInfo.length} affiliate link(s) from TOP PICKS section`);
       
       // Clean URLs and preserve brand/position info
       const affiliateLinksWithInfo: Array<{url: string, brand: string, position: string}> = [];
       
+      // Debug: log all extracted links before filtering
+      console.log(`   🔍 Raw extracted links:`, linksWithInfo.map((link: {url: string, brand: string, position: string}) => ({
+        url: link.url.substring(0, 50) + '...',
+        brand: link.brand,
+        position: link.position
+      })));
+      
       for (const linkInfo of linksWithInfo) {
         const cleanedUrl = cleanUrl(linkInfo.url);
         
-        // Only include if it has brand AND position (ensures it came from the table)
-        if (linkInfo.brand || linkInfo.position) {
-          affiliateLinksWithInfo.push({
-            url: cleanedUrl,
-            brand: linkInfo.brand,
-            position: linkInfo.position
-          });
-        }
+        // Include all links
+        affiliateLinksWithInfo.push({
+          url: cleanedUrl,
+          brand: linkInfo.brand,
+          position: linkInfo.position
+        });
       }
 
       // Remove duplicates based on URL while preserving first occurrence's brand/position
