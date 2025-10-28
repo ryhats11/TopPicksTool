@@ -876,85 +876,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return cleaned.trim();
       };
 
-      // Collect text sources - prioritize description for TOP PICKS LINEUP
-      const textSources: string[] = [];
+      // ONLY use task description - this contains the TOP PICKS LINEUP table
+      const taskDescription = taskData.description || taskData.text_content || '';
       
-      // Primary source: Task description (contains TOP PICKS LINEUP table)
-      if (taskData.description) {
-        textSources.push(taskData.description);
-      }
-      if (taskData.text_content) {
-        textSources.push(taskData.text_content);
-      }
+      // Extract URLs ONLY from the "Tracking Link with ClickUp task ID" column in the table
+      const linksWithInfo = extractUrlsFromTrackingColumn(taskDescription);
       
-      // Also check comments as fallback
-      for (const comment of comments) {
-        if (comment.comment_text) {
-          textSources.push(comment.comment_text);
-        }
-        if (comment.text) {
-          textSources.push(comment.text);
-        }
-        if (comment.comment && Array.isArray(comment.comment)) {
-          for (const commentPart of comment.comment) {
-            if (commentPart.text) {
-              textSources.push(commentPart.text);
-            }
-          }
-        }
-      }
-
-      // Extract all URLs with brand info from all sources
+      console.log(`   📋 Found ${linksWithInfo.length} link(s) from table extraction`);
+      
+      // Clean URLs and preserve brand/position info
       const affiliateLinksWithInfo: Array<{url: string, brand: string, position: string}> = [];
       
-      // Common affiliate tracking parameter names
-      const affiliateParams = [
-        'payload', 'subid', 'sub_id', 'clickid', 'click_id', 
-        'affid', 'aff_id', 'campaign', 'campaign_id', 'tracking',
-        'tracker', 'ref', 'reference', 'source', 'utm_campaign',
-        'pid', 'aid', 'sid', 'cid', 'tid', 'btag', 'tag', 'var'
-      ];
-      
-      for (const text of textSources) {
-        const linksWithInfo = extractUrlsFromTrackingColumn(text);
+      for (const linkInfo of linksWithInfo) {
+        const cleanedUrl = cleanUrl(linkInfo.url);
         
-        // If we got structured data from table extraction, use it
-        if (linksWithInfo.length > 0) {
-          for (const linkInfo of linksWithInfo) {
-            const cleanedUrl = cleanUrl(linkInfo.url);
-            const hasAffiliateParam = affiliateParams.some(param => 
-              cleanedUrl.toLowerCase().includes(`${param}=`)
-            );
-            
-            if (hasAffiliateParam) {
-              affiliateLinksWithInfo.push({
-                url: cleanedUrl,
-                brand: linkInfo.brand,
-                position: linkInfo.position
-              });
-            }
-          }
-        } else {
-          // Fallback: extract URLs without brand info
-          const urls = extractUrls(text);
-          for (const url of urls) {
-            const cleanedUrl = cleanUrl(url);
-            const hasAffiliateParam = affiliateParams.some(param => 
-              cleanedUrl.toLowerCase().includes(`${param}=`)
-            );
-            
-            if (hasAffiliateParam) {
-              affiliateLinksWithInfo.push({
-                url: cleanedUrl,
-                brand: '',
-                position: ''
-              });
-            }
-          }
+        // Only include if it has brand AND position (ensures it came from the table)
+        if (linkInfo.brand || linkInfo.position) {
+          affiliateLinksWithInfo.push({
+            url: cleanedUrl,
+            brand: linkInfo.brand,
+            position: linkInfo.position
+          });
         }
       }
 
-      // Remove duplicates based on URL
+      // Remove duplicates based on URL while preserving first occurrence's brand/position
       const seen = new Set<string>();
       const uniqueLinks = affiliateLinksWithInfo.filter(link => {
         if (seen.has(link.url)) return false;
@@ -962,8 +908,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return true;
       });
 
-      console.log(`🔗 Found ${uniqueLinks.length} affiliate link(s) in ClickUp task ${taskId}`);
-      console.log(`   Searched ${textSources.length} text source(s)`);
+      console.log(`🔗 Found ${uniqueLinks.length} affiliate link(s) with brand info from TOP PICKS LINEUP table`);
       
       res.json({ links: uniqueLinks });
     } catch (error: any) {
