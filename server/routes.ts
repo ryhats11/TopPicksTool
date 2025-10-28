@@ -664,14 +664,108 @@ export async function registerRoutes(app: Express): Promise<Server> {
         comments = commentsData.comments || [];
       }
 
+      // Helper function to extract URLs from table columns
+      const extractUrlsFromTable = (text: string): string[] => {
+        if (!text) return [];
+        
+        const foundUrls: string[] = [];
+        
+        // Strategy 1: Parse markdown tables with "Tracking Link" column
+        const lines = text.split('\n');
+        let trackingColumnIndex = -1;
+        
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i].trim();
+          
+          // Check if this is a header row with pipe separators
+          if (line.includes('|') && (
+            line.toLowerCase().includes('tracking link') || 
+            line.toLowerCase().includes('clickup task')
+          )) {
+            // Parse the header to find column index
+            const headers = line.split('|').map(h => h.trim());
+            trackingColumnIndex = headers.findIndex(h => 
+              h.toLowerCase().includes('tracking link') || 
+              h.toLowerCase().includes('clickup task')
+            );
+            
+            console.log(`   📊 Found table with tracking column at index ${trackingColumnIndex}`);
+            continue;
+          }
+          
+          // If we found the tracking column, extract URLs from that column in data rows
+          if (trackingColumnIndex >= 0 && line.includes('|') && !line.match(/^[\s|:-]+$/)) {
+            const cells = line.split('|').map(c => c.trim());
+            if (cells.length > trackingColumnIndex) {
+              const cellContent = cells[trackingColumnIndex];
+              // Extract all URLs from this cell
+              const urlRegex = /https?:\/\/[^\s<>"'`|]+/gi;
+              const urls = cellContent.match(urlRegex) || [];
+              foundUrls.push(...urls);
+            }
+          }
+        }
+        
+        // Strategy 2: Parse HTML tables
+        const htmlTableRegex = /<table[\s\S]*?<\/table>/gi;
+        const tables = text.match(htmlTableRegex) || [];
+        
+        for (const table of tables) {
+          // Find header cells to identify tracking column
+          const headerRegex = /<th[^>]*>([\s\S]*?)<\/th>/gi;
+          const headers: string[] = [];
+          let headerMatch;
+          
+          while ((headerMatch = headerRegex.exec(table)) !== null) {
+            headers.push(headerMatch[1].replace(/<[^>]+>/g, '').trim());
+          }
+          
+          const trackingColIdx = headers.findIndex(h => 
+            h.toLowerCase().includes('tracking link') || 
+            h.toLowerCase().includes('clickup task')
+          );
+          
+          if (trackingColIdx >= 0) {
+            console.log(`   📊 Found HTML table with tracking column at index ${trackingColIdx}`);
+            
+            // Extract rows and get URLs from the tracking column
+            const rowRegex = /<tr[^>]*>([\s\S]*?)<\/tr>/gi;
+            let rowMatch;
+            
+            while ((rowMatch = rowRegex.exec(table)) !== null) {
+              const rowContent = rowMatch[1];
+              const cellRegex = /<td[^>]*>([\s\S]*?)<\/td>/gi;
+              const cells: string[] = [];
+              let cellMatch;
+              
+              while ((cellMatch = cellRegex.exec(rowContent)) !== null) {
+                cells.push(cellMatch[1]);
+              }
+              
+              if (cells.length > trackingColIdx) {
+                const urlRegex = /https?:\/\/[^\s<>"']+/gi;
+                const urls = cells[trackingColIdx].match(urlRegex) || [];
+                foundUrls.push(...urls);
+              }
+            }
+          }
+        }
+        
+        return foundUrls;
+      };
+
       // Helper function to extract URLs from text with multiple strategies
       const extractUrls = (text: string): string[] => {
         if (!text) return [];
         
         const foundUrls: string[] = [];
         
+        // First, try table extraction (highest priority for structured data)
+        const tableUrls = extractUrlsFromTable(text);
+        foundUrls.push(...tableUrls);
+        
         // Strategy 1: Standard URL regex (catches most http/https URLs)
-        const standardUrlRegex = /https?:\/\/[^\s<>"'`()[\]{}]+/gi;
+        const standardUrlRegex = /https?:\/\/[^\s<>"'`()[\]{}|]+/gi;
         const standardMatches = text.match(standardUrlRegex) || [];
         foundUrls.push(...standardMatches);
         
@@ -710,8 +804,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Helper function to clean and validate URLs
       const cleanUrl = (url: string): string => {
-        // Remove trailing punctuation that's not part of the URL
-        return url.replace(/[,;.!?]+$/, '').trim();
+        // Remove trailing punctuation and HTML tags
+        let cleaned = url.replace(/[,;.!?]+$/, '').trim();
+        // Remove any HTML tags that might have been captured
+        cleaned = cleaned.replace(/<[^>]+>/g, '');
+        // Remove markdown link wrapper if present
+        cleaned = cleaned.replace(/^\[.*?\]\((.*?)\)$/, '$1');
+        return cleaned.trim();
       };
 
       // Collect all text sources to search
