@@ -925,10 +925,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // This handles cases where parameters/values are separated by spaces in markdown tables
           const restOfCell = afterUrlStart.split('|')[0];
           
+          // Debug logging for the first URL
+          if (trackingLinks.length === 0) {
+            console.log(`   🔍 DEBUG URL #1:`);
+            console.log(`      Line: ${JSON.stringify(line)}`);
+            console.log(`      Initial URL: ${url}`);
+            console.log(`      Rest of cell: ${JSON.stringify(restOfCell)}`);
+          }
+          
           // Append any remaining URL parts (handling spaces in table cells)
           if (restOfCell.trim()) {
             // Remove extra whitespace and join parts that belong to the URL
             const parts = restOfCell.trim().split(/\s+/);
+            
+            if (trackingLinks.length === 0) {
+              console.log(`      Parts: ${JSON.stringify(parts)}`);
+            }
+            
             for (const part of parts) {
               // Check if this part looks like it belongs to the URL
               if (
@@ -941,6 +954,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 // If URL ends with "=" and this is just a value, append it
                 if (url.endsWith('=') && part.match(/^[a-zA-Z0-9_-]+$/)) {
                   url = url + part;
+                  if (trackingLinks.length === 0) {
+                    console.log(`      Appending value "${part}" → ${url}`);
+                  }
                 } 
                 // If this is a new parameter with &, append it
                 else if (part.startsWith('&')) {
@@ -952,6 +968,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 }
                 else {
                   url = url + part;
+                  if (trackingLinks.length === 0) {
+                    console.log(`      Appending part "${part}" → ${url}`);
+                  }
+                }
+              } else {
+                if (trackingLinks.length === 0) {
+                  console.log(`      Skipping non-URL part: "${part}"`);
                 }
               }
             }
