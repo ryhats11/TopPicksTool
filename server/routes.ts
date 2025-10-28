@@ -487,6 +487,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
+      // Check if task ID appears in URL path (e.g., /click/15/4204/13991/1/86aag6qjn)
+      const escapedTaskId = oldTaskId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      
+      // Match task ID as a path segment (surrounded by / or at end of path)
+      const pathPattern = new RegExp(`/${escapedTaskId}(?=/|$)`, 'i');
+      if (pathPattern.test(url)) {
+        return url.replace(pathPattern, `/${newValue}`);
+      }
+      
+      // Match task ID at end of URL (no trailing slash)
+      const endPattern = new RegExp(`/${escapedTaskId}$`, 'i');
+      if (endPattern.test(url)) {
+        return url.replace(endPattern, `/${newValue}`);
+      }
+      
       // If no match found, return original URL unchanged
       return url;
     };

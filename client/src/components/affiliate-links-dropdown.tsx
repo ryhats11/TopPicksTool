@@ -113,11 +113,24 @@ function safeReplacePayload(url: string, oldTaskId: string, newPayload: string):
   
   // Regex fallback: find parameter with exact oldTaskId value
   const escapedTaskId = oldTaskId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const pattern = new RegExp(`([a-zA-Z_][a-zA-Z0-9_]*)=${escapedTaskId}(?=&|$)`, 'i');
-  const match = url.match(pattern);
+  const paramPattern = new RegExp(`([a-zA-Z_][a-zA-Z0-9_]*)=${escapedTaskId}(?=&|$)`, 'i');
+  const paramMatch = url.match(paramPattern);
   
-  if (match) {
-    return url.replace(pattern, `$1=${newPayload}`);
+  if (paramMatch) {
+    return url.replace(paramPattern, `$1=${newPayload}`);
+  }
+  
+  // Check if task ID appears in URL path (e.g., /click/15/4204/13991/1/86aag6qjn)
+  // Match task ID as a path segment (surrounded by / or at end of path)
+  const pathPattern = new RegExp(`/${escapedTaskId}(?=/|$)`, 'i');
+  if (pathPattern.test(url)) {
+    return url.replace(pathPattern, `/${newPayload}`);
+  }
+  
+  // Match task ID at end of URL (no trailing slash)
+  const endPattern = new RegExp(`/${escapedTaskId}$`, 'i');
+  if (endPattern.test(url)) {
+    return url.replace(endPattern, `/${newPayload}`);
   }
   
   // If no match found, return original URL
