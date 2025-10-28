@@ -39,12 +39,14 @@ export const geoBrandRankings = pgTable("geo_brand_rankings", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   geoId: varchar("geo_id").notNull().references(() => geos.id, { onDelete: "cascade" }),
   brandId: varchar("brand_id").notNull().references(() => brands.id, { onDelete: "cascade" }),
-  position: integer("position").notNull(),
-  rpcInCents: integer("rpc_in_cents").notNull(),
+  position: integer("position"), // Nullable: null = not featured, 1-10 = featured ranking
+  rpcInCents: integer("rpc_in_cents").notNull().default(0),
   affiliateLink: text("affiliate_link"),
   timestamp: bigint("timestamp", { mode: "number" }).notNull(),
 }, (table) => ({
+  // Only enforce unique position when position is not null (featured brands)
   uniqueGeoPosition: unique().on(table.geoId, table.position),
+  // Each brand can only appear once per GEO
   uniqueGeoBrand: unique().on(table.geoId, table.brandId),
 }));
 
@@ -67,7 +69,7 @@ export const insertBrandSchema = createInsertSchema(brands).omit({
 export const insertGeoBrandRankingSchema = createInsertSchema(geoBrandRankings).omit({
   id: true,
 }).extend({
-  position: z.number().int().min(1).max(10),
+  position: z.number().int().min(1).max(10).nullable().optional(),
   rpcInCents: z.number().int().min(0),
 });
 

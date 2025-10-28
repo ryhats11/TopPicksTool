@@ -30,6 +30,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   Select,
@@ -191,11 +192,22 @@ export default function BrandRankings() {
     return brand.name.toLowerCase().includes(query);
   });
 
-  // Combine rankings with brand info
-  const rankingsWithBrands: RankingWithBrand[] = rankings.map((ranking) => ({
-    ...ranking,
-    brand: brands.find((b) => b.id === ranking.brandId),
-  })).sort((a, b) => a.position - b.position);
+  // Separate featured (position 1-10) from other brands (position null)
+  const featuredRankings: RankingWithBrand[] = rankings
+    .filter((r) => r.position != null)
+    .map((ranking) => ({
+      ...ranking,
+      brand: brands.find((b) => b.id === ranking.brandId),
+    }))
+    .sort((a, b) => (a.position || 0) - (b.position || 0));
+
+  const otherBrands: RankingWithBrand[] = rankings
+    .filter((r) => r.position == null)
+    .map((ranking) => ({
+      ...ranking,
+      brand: brands.find((b) => b.id === ranking.brandId),
+    }))
+    .sort((a, b) => (a.brand?.name || "").localeCompare(b.brand?.name || ""));
 
   // Create GEO mutation
   const createGeoMutation = useMutation({
@@ -355,6 +367,55 @@ export default function BrandRankings() {
     },
   });
 
+  // Add other brand (non-featured) mutation
+  const addOtherBrandMutation = useMutation({
+    mutationFn: async (brandId: string) => {
+      const res = await apiRequest("POST", `/api/geos/${selectedGeoId}/rankings`, {
+        brandId,
+        position: null,
+        rpcInCents: 0,
+        timestamp: Date.now(),
+      });
+      return await res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/geos", selectedGeoId, "rankings"] });
+      toast({
+        title: "Brand Added",
+        description: "Brand has been added to this GEO.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to add brand",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Remove brand from GEO mutation
+  const removeBrandMutation = useMutation({
+    mutationFn: async (rankingId: string) => {
+      const res = await apiRequest("DELETE", `/api/rankings/${rankingId}`);
+      return await res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/geos", selectedGeoId, "rankings"] });
+      toast({
+        title: "Brand Removed",
+        description: "Brand has been removed from this GEO.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to remove brand",
+        variant: "destructive",
+      });
+    },
+  });
+
   // Bulk upsert rankings mutation
   const bulkUpsertRankingsMutation = useMutation({
     mutationFn: async ({ geoId, rankings }: { geoId: string; rankings: any[] }) => {
@@ -382,7 +443,7 @@ export default function BrandRankings() {
   const handleStartEdit = () => {
     const editMap = new Map<number, RankingWithBrand>();
     for (let i = 1; i <= 10; i++) {
-      const existing = rankingsWithBrands.find((r) => r.position === i);
+      const existing = featuredRankings.find((r) => r.position === i);
       if (existing) {
         editMap.set(i, existing);
       } else {
@@ -636,14 +697,14 @@ export default function BrandRankings() {
                         </TableHeader>
                         <TableBody>
                           {!isEditMode ? (
-                            rankingsWithBrands.length === 0 ? (
+                            featuredRankings.length === 0 ? (
                               <TableRow>
                                 <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
                                   No rankings yet. Click "Edit Rankings" to add brands.
                                 </TableCell>
                               </TableRow>
                             ) : (
-                              rankingsWithBrands.map((ranking) => (
+                              featuredRankings.map((ranking) => (
                                 <TableRow key={ranking.id} data-testid={`ranking-row-${ranking.position}`}>
                                   <TableCell className="font-semibold" data-testid={`cell-position-${ranking.position}`}>#{ranking.position}</TableCell>
                                   <TableCell data-testid={`cell-brand-${ranking.position}`}>{ranking.brand?.name || "Unknown Brand"}</TableCell>
@@ -720,6 +781,105 @@ export default function BrandRankings() {
                           )}
                         </TableBody>
                       </Table>
+                    )}
+                  </div>
+                </Card>
+
+                {/* Other Brands Section */}
+                <Card className="mt-6">
+                  <div className="p-6">
+                    <div className="flex items-center justify-between mb-6">
+                      <div>
+                        <h2 className="text-lg font-semibold">Other Brands</h2>
+                        <p className="text-sm text-muted-foreground">
+                          Additional brands for this GEO (not in top 10)
+                        </p>
+                      </div>
+                      <Dialog>
+                        <DialogTrigger asChild>
+                          <Button variant="outline" size="sm" data-testid="button-add-other-brand">
+                            <Plus className="h-4 w-4 mr-2" />
+                            Add Brand
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent data-testid="dialog-add-other-brand">
+                          <DialogHeader>
+                            <DialogTitle>Add Brand to GEO</DialogTitle>
+                            <DialogDescription>
+                              Select a brand to add to {selectedGeo?.name}. It will not be featured in the top 10 rankings.
+                            </DialogDescription>
+                          </DialogHeader>
+                          <div className="py-4">
+                            <Label htmlFor="brand-search">Search Brands</Label>
+                            <Input
+                              id="brand-search"
+                              placeholder="Type to search..."
+                              value={brandSearchQuery}
+                              onChange={(e) => setBrandSearchQuery(e.target.value)}
+                              className="mb-4"
+                              data-testid="input-brand-search-other"
+                            />
+                            <div className="max-h-[300px] overflow-y-auto space-y-2">
+                              {filteredBrands
+                                .filter((brand) => !otherBrands.some((r) => r.brandId === brand.id) && !featuredRankings.some((r) => r.brandId === brand.id))
+                                .map((brand) => (
+                                  <Button
+                                    key={brand.id}
+                                    variant="outline"
+                                    className="w-full justify-start"
+                                    onClick={() => {
+                                      addOtherBrandMutation.mutate(brand.id);
+                                      setBrandSearchQuery("");
+                                    }}
+                                    data-testid={`button-add-brand-${brand.id}`}
+                                  >
+                                    {brand.name}
+                                  </Button>
+                                ))}
+                            </div>
+                          </div>
+                        </DialogContent>
+                      </Dialog>
+                    </div>
+
+                    {isLoadingRankings || isLoadingBrands ? (
+                      <div className="text-sm text-muted-foreground p-4">Loading brands...</div>
+                    ) : otherBrands.length === 0 ? (
+                      <div className="text-center text-muted-foreground py-8 border rounded-lg">
+                        No other brands added yet.
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                        {otherBrands.map((ranking) => (
+                          <div
+                            key={ranking.id}
+                            className="flex items-center justify-between p-3 border rounded-lg"
+                            data-testid={`other-brand-${ranking.brandId}`}
+                          >
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium truncate">{ranking.brand?.name || "Unknown"}</p>
+                              {ranking.affiliateLink && (
+                                <a
+                                  href={ranking.affiliateLink}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-xs text-primary hover:underline truncate block"
+                                >
+                                  {ranking.affiliateLink}
+                                </a>
+                              )}
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => removeBrandMutation.mutate(ranking.id)}
+                              data-testid={`button-remove-brand-${ranking.brandId}`}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
                     )}
                   </div>
                 </Card>

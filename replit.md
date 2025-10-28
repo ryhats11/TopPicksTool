@@ -5,7 +5,9 @@
 A web-based application for managing unique tracking codes (Sub-IDs) across multiple websites and brand rankings by geographic region. The system includes two main modules:
 
 1. **Sub-ID Tracker**: Manages unique tracking codes across multiple websites with customizable format patterns, ClickUp CMS integration, and affiliate link management
-2. **Brand Rankings**: Maintains top 10 brand lists per geographic region (GEO) with RPC (Revenue Per Click) values for performance tracking
+2. **Brand Rankings**: Maintains brand lists per geographic region (GEO) with RPC (Revenue Per Click) values:
+   - **Featured Brands**: Top 10 ranked brands (positions 1-10) with RPC tracking
+   - **Other Brands**: Unlimited non-featured brands per GEO for organization and tracking
 
 ## User Preferences
 
@@ -87,9 +89,11 @@ Preferred communication style: Simple, everyday language.
 - **GEOs Table**: Stores geographic regions with code, name, and sort order
 - **Brands Table**: Global brand directory with name, default URL, and status
 - **GeoBrandRankings Table**: Junction table for GEO-Brand relationships with position and RPC data
-  - Position (1-10 ranking), RPC in cents, optional notes, timestamp
-  - Unique constraints on (geoId, position) and (geoId, brandId) to prevent duplicates
+  - Position (nullable): 1-10 for featured brands, null for non-featured brands
+  - RPC in cents, optional affiliate link, timestamp
+  - Unique constraints on (geoId, position) when position is not null, and (geoId, brandId) to prevent duplicates
   - Foreign keys to GEOs and Brands with cascade delete
+  - Supports both featured (top 10 ranked) and unlimited non-featured brands per GEO
 - UUID-based primary keys generated via `gen_random_uuid()`
 - Immutability feature prevents deletion of websites with marked Sub-IDs
 
