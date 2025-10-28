@@ -493,18 +493,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Replace tracking links, remove cloaked links
       for (const url of urls) {
         if (url.includes('pokerology.com')) {
-          // Remove cloaked link entirely including any trailing text (old task ID)
-          // Match the URL plus any alphanumeric text that follows it
-          const urlWithTrailing = new RegExp(url.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\s*[a-zA-Z0-9]*', 'g');
-          updatedLine = updatedLine.replace(urlWithTrailing, '');
+          // Remove cloaked link entirely
+          updatedLine = updatedLine.replace(url, '');
         } else {
-          // Replace task ID with Sub-ID in tracking link and remove any trailing old task ID
+          // Replace task ID with Sub-ID in tracking link
           const updatedUrl = replaceTrackingParam(url, subIdValue);
-          // Match the URL plus any trailing alphanumeric text (old task ID) after it
-          const urlWithTrailing = new RegExp(url.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(\\s+[a-zA-Z0-9]+)?', 'g');
-          updatedLine = updatedLine.replace(urlWithTrailing, updatedUrl);
+          updatedLine = updatedLine.replace(url, updatedUrl);
         }
       }
+      
+      // After all URL replacements, remove any trailing standalone task IDs
+      // This catches task IDs that appear after URLs (common pattern in tables)
+      updatedLine = updatedLine.replace(/\s+86a9[a-zA-Z0-9]+/g, '');
       
       updatedLines.push(updatedLine);
     }
