@@ -181,24 +181,29 @@ Preferred communication style: Simple, everyday language.
 
 **Purpose**: Batch analysis tool for ClickUp tasks to identify relationships with websites, brands, and Sub-IDs
 
+**Auto-Detection**: Each task's "*Target GEO" custom field is automatically extracted from ClickUp, allowing mixed-GEO batches in a single analysis
+
 **Workflow**:
 1. User pastes ClickUp task IDs (one per line or comma-separated)
-2. Selects target GEO for brand matching
-3. System analyzes each task:
-   - Fetches task details from ClickUp API
+2. System analyzes each task:
+   - Fetches task details and custom fields from ClickUp API
+   - Extracts "*Target GEO" custom field (handles both string and object formats)
+   - Maps GEO code (e.g., "USA", "UK") to database GEO via case-insensitive lookup
    - Matches task name against website names in Sub-ID tracker
-   - Searches task name/description for featured brand names (top 10 for selected GEO)
+   - Searches task name/description for featured brand names (top 10 for that task's specific GEO)
    - Checks if Sub-ID already exists for the task ID
 
 **Results Display**:
-- Task ID with website association (if detected)
-- Brand match showing position and name (if found in top 10)
+- Task ID
+- Detected Target GEO (shows code badge or "Not set" if missing)
+- Website association (if detected from task name)
+- Brand match showing position and name (if found in top 10 for that task's GEO)
 - Sub-ID status (exists/not found)
 - Sub-ID value (if already created)
 - Error messages for ClickUp API failures
 
 **Data Sources**:
-- ClickUp API for task metadata
+- ClickUp API for task metadata and custom fields
 - Sub-ID Tracker database for existing task-to-Sub-ID mappings and website names
 - Brand Rankings database for featured brands per GEO
 - Global Brands table for brand name matching
