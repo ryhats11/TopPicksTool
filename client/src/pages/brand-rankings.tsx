@@ -139,6 +139,159 @@ function SortableGeoItem({
   );
 }
 
+// Sortable Featured Brand Row Component
+function SortableFeaturedBrand({
+  ranking,
+  onMoveToOther,
+  onDelete,
+}: {
+  ranking: RankingWithBrand;
+  onMoveToOther: () => void;
+  onDelete: () => void;
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: ranking.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <TableRow ref={setNodeRef} style={style} data-testid={`ranking-row-${ranking.position}`}>
+      <TableCell className="font-semibold" data-testid={`cell-position-${ranking.position}`}>
+        <div className="flex items-center gap-2">
+          <div
+            {...attributes}
+            {...listeners}
+            className="cursor-grab active:cursor-grabbing"
+            data-testid={`brand-drag-handle-${ranking.position}`}
+          >
+            <GripVertical className="h-4 w-4 text-muted-foreground" />
+          </div>
+          #{ranking.position}
+        </div>
+      </TableCell>
+      <TableCell data-testid={`cell-brand-${ranking.position}`}>{ranking.brand?.name || "Unknown Brand"}</TableCell>
+      <TableCell className="text-sm text-muted-foreground truncate max-w-xs" data-testid={`cell-affiliate-link-${ranking.position}`}>
+        {ranking.affiliateLink ? (
+          <a href={ranking.affiliateLink} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+            {ranking.affiliateLink}
+          </a>
+        ) : "-"}
+      </TableCell>
+      <TableCell data-testid={`cell-actions-${ranking.position}`}>
+        <div className="flex gap-1">
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={onMoveToOther}
+            data-testid={`button-move-to-other-${ranking.position}`}
+            title="Move to Other Brands"
+          >
+            <ArrowDown className="h-4 w-4" />
+          </Button>
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={onDelete}
+            data-testid={`button-delete-ranking-${ranking.position}`}
+            title="Remove from List"
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
+      </TableCell>
+    </TableRow>
+  );
+}
+
+// Sortable Other Brand Card Component
+function SortableOtherBrand({
+  ranking,
+  onPromote,
+  onRemove,
+}: {
+  ranking: RankingWithBrand;
+  onPromote: () => void;
+  onRemove: () => void;
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: ranking.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="flex items-center justify-between p-3 border rounded-lg"
+      data-testid={`other-brand-${ranking.brandId}`}
+    >
+      <div className="flex items-center gap-2 flex-1 min-w-0">
+        <div
+          {...attributes}
+          {...listeners}
+          className="cursor-grab active:cursor-grabbing"
+          data-testid={`other-brand-drag-handle-${ranking.brandId}`}
+        >
+          <GripVertical className="h-4 w-4 text-muted-foreground" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="font-medium truncate">{ranking.brand?.name || "Unknown"}</p>
+          {ranking.affiliateLink && (
+            <a
+              href={ranking.affiliateLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-primary hover:underline truncate block"
+            >
+              {ranking.affiliateLink}
+            </a>
+          )}
+        </div>
+      </div>
+      <div className="flex gap-1">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onPromote}
+          data-testid={`button-promote-brand-${ranking.brandId}`}
+          title="Promote to Featured Brands"
+        >
+          <ArrowUp className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onRemove}
+          data-testid={`button-remove-brand-${ranking.brandId}`}
+          title="Remove from List"
+        >
+          <X className="h-4 w-4" />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 export default function BrandRankings() {
   const { toast } = useToast();
   const [location] = useLocation();
