@@ -1,7 +1,5 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Link } from "wouter";
-import { TrendingUp, GitCompare } from "lucide-react";
 import { AppSidebar } from "@/components/app-sidebar";
 import { WebsiteHeader } from "@/components/website-header";
 import { SubIdTable } from "@/components/subid-table";
@@ -10,9 +8,8 @@ import { BulkImportDialog } from "@/components/bulk-import-dialog";
 import { BulkClickUpImportDialog } from "@/components/bulk-clickup-import-dialog";
 import { EmptyState } from "@/components/empty-state";
 import { WebsiteOverview } from "@/components/website-overview";
-import { ThemeToggle } from "@/components/theme-toggle";
-import { Button } from "@/components/ui/button";
-import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { PageNav } from "@/components/page-nav";
+import { SidebarProvider } from "@/components/ui/sidebar";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import type { Website, SubId } from "@shared/schema";
@@ -412,26 +409,7 @@ export default function Dashboard() {
           onAddWebsite={() => setIsAddDialogOpen(true)}
         />
         <div className="flex flex-col flex-1">
-          <header className="flex items-center justify-between px-6 py-4 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-            <div className="flex items-center gap-4">
-              <SidebarTrigger data-testid="button-sidebar-toggle" />
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" asChild data-testid="link-brand-rankings">
-                  <Link href="/brand-rankings">
-                    <TrendingUp className="h-4 w-4 mr-2" />
-                    Brand Rankings
-                  </Link>
-                </Button>
-                <Button variant="outline" size="sm" asChild data-testid="link-task-reconciliation">
-                  <Link href="/task-reconciliation">
-                    <GitCompare className="h-4 w-4 mr-2" />
-                    Task Reconciliation
-                  </Link>
-                </Button>
-              </div>
-            </div>
-            <ThemeToggle />
-          </header>
+          <PageNav showSidebarToggle />
           <main className="flex-1 overflow-auto">
             {selectedWebsite ? (
               <div className="h-full flex flex-col">
