@@ -295,7 +295,7 @@ export default function TaskReconciliation() {
   };
 
   const handleManualBrandSelection = (taskId: string, brandValue: string) => {
-    if (!brandValue) {
+    if (!brandValue || brandValue === "auto") {
       // Clear brand selection
       setManualBrandSelections(prev => {
         const next = { ...prev };
@@ -722,7 +722,7 @@ export default function TaskReconciliation() {
                               {/* Manual brand selection dropdown */}
                               {effectiveListId && (
                                 <Select
-                                  value={manualMatch ? `${manualMatch.position || 'null'}:${manualMatch.brandName}:${manualMatch.brandId}` : ""}
+                                  value={manualMatch ? `${manualMatch.position || 'null'}:${manualMatch.brandName}:${manualMatch.brandId}` : "auto"}
                                   onValueChange={(value) => handleManualBrandSelection(result.taskId, value)}
                                   data-testid={`select-manual-brand-${index}`}
                                 >
@@ -730,7 +730,7 @@ export default function TaskReconciliation() {
                                     <SelectValue placeholder="Override brand..." />
                                   </SelectTrigger>
                                   <SelectContent>
-                                    <SelectItem value="">Auto (Top Brand)</SelectItem>
+                                    <SelectItem value="auto">Auto (Top Brand)</SelectItem>
                                     {getAllBrandsForList(effectiveListId).map((brand) => (
                                       <SelectItem 
                                         key={brand.brandId} 
