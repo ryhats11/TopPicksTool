@@ -6,6 +6,7 @@ import {
   insertSubIdSchema,
   insertGeoSchema,
   insertBrandSchema,
+  insertBrandListSchema,
   insertGeoBrandRankingSchema
 } from "@shared/schema";
 
@@ -1465,7 +1466,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Brand List routes
+  app.get("/api/geos/:geoId/brand-lists", async (req, res) => {
+    try {
+      const brandLists = await storage.getBrandListsByGeo(req.params.geoId);
+      res.json(brandLists);
+    } catch (error) {
+      console.error("Error fetching brand lists:", error);
+      res.status(500).json({ error: "Failed to fetch brand lists" });
+    }
+  });
+
+  app.post("/api/geos/:geoId/brand-lists", async (req, res) => {
+    try {
+      const data = insertBrandListSchema.parse({
+        ...req.body,
+        geoId: req.params.geoId,
+      });
+      const brandList = await storage.createBrandList(data);
+      res.json(brandList);
+    } catch (error: any) {
+      console.error("Error creating brand list:", error);
+      res.status(400).json({ error: error.message || "Invalid brand list data" });
+    }
+  });
+
+  app.put("/api/brand-lists/:id", async (req, res) => {
+    try {
+      const data = insertBrandListSchema.partial().parse(req.body);
+      const brandList = await storage.updateBrandList(req.params.id, data);
+      res.json(brandList);
+    } catch (error: any) {
+      console.error("Error updating brand list:", error);
+      res.status(400).json({ error: error.message || "Invalid brand list data" });
+    }
+  });
+
+  app.delete("/api/brand-lists/:id", async (req, res) => {
+    try {
+      await storage.deleteBrandList(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting brand list:", error);
+      res.status(500).json({ error: "Failed to delete brand list" });
+    }
+  });
+
   // Ranking routes
+  app.get("/api/brand-lists/:listId/rankings", async (req, res) => {
+    try {
+      const rankings = await storage.getRankingsByList(req.params.listId);
+      res.json(rankings);
+    } catch (error) {
+      console.error("Error fetching rankings:", error);
+      res.status(500).json({ error: "Failed to fetch rankings" });
+    }
+  });
   app.get("/api/geos/:geoId/rankings", async (req, res) => {
     try {
       const rankings = await storage.getRankingsByGeo(req.params.geoId);
@@ -1511,22 +1567,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/geos/:geoId/rankings/bulk", async (req, res) => {
+  app.post("/api/brand-lists/:listId/rankings/bulk", async (req, res) => {
     try {
-      const { rankings } = req.body;
+      const { rankings, geoId } = req.body;
       if (!Array.isArray(rankings)) {
         return res.status(400).json({ error: "rankings must be an array" });
+      }
+      if (!geoId) {
+        return res.status(400).json({ error: "geoId is required" });
       }
       
       const validatedRankings = rankings.map((ranking) => 
         insertGeoBrandRankingSchema.parse({
           ...ranking,
-          geoId: req.params.geoId,
+          geoId: geoId,
+          listId: req.params.listId,
         })
       );
       
       const updatedRankings = await storage.bulkUpsertRankings(
-        req.params.geoId,
+        req.params.listId,
         validatedRankings
       );
       res.json(updatedRankings);

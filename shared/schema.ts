@@ -35,18 +35,29 @@ export const brands = pgTable("brands", {
   status: varchar("status", { length: 20 }).notNull().default("active"),
 });
 
+export const brandLists = pgTable("brand_lists", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  geoId: varchar("geo_id").notNull().references(() => geos.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  sortOrder: integer("sort_order").notNull().default(0),
+}, (table) => ({
+  // Each list name must be unique per GEO
+  uniqueGeoListName: unique().on(table.geoId, table.name),
+}));
+
 export const geoBrandRankings = pgTable("geo_brand_rankings", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   geoId: varchar("geo_id").notNull().references(() => geos.id, { onDelete: "cascade" }),
+  listId: varchar("list_id").notNull().references(() => brandLists.id, { onDelete: "cascade" }),
   brandId: varchar("brand_id").notNull().references(() => brands.id, { onDelete: "cascade" }),
   position: integer("position"), // Nullable: null = not featured, 1-10 = featured ranking
   affiliateLink: text("affiliate_link"),
   timestamp: bigint("timestamp", { mode: "number" }).notNull(),
 }, (table) => ({
   // Only enforce unique position when position is not null (featured brands)
-  uniqueGeoPosition: unique().on(table.geoId, table.position),
-  // Each brand can only appear once per GEO
-  uniqueGeoBrand: unique().on(table.geoId, table.brandId),
+  uniqueListPosition: unique().on(table.listId, table.position),
+  // Each brand can only appear once per list
+  uniqueListBrand: unique().on(table.listId, table.brandId),
 }));
 
 export const insertWebsiteSchema = createInsertSchema(websites).omit({
@@ -65,6 +76,10 @@ export const insertBrandSchema = createInsertSchema(brands).omit({
   id: true,
 });
 
+export const insertBrandListSchema = createInsertSchema(brandLists).omit({
+  id: true,
+});
+
 export const insertGeoBrandRankingSchema = createInsertSchema(geoBrandRankings).omit({
   id: true,
 }).extend({
@@ -79,5 +94,7 @@ export type InsertGeo = z.infer<typeof insertGeoSchema>;
 export type Geo = typeof geos.$inferSelect;
 export type InsertBrand = z.infer<typeof insertBrandSchema>;
 export type Brand = typeof brands.$inferSelect;
+export type InsertBrandList = z.infer<typeof insertBrandListSchema>;
+export type BrandList = typeof brandLists.$inferSelect;
 export type InsertGeoBrandRanking = z.infer<typeof insertGeoBrandRankingSchema>;
 export type GeoBrandRanking = typeof geoBrandRankings.$inferSelect;

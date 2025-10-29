@@ -7,12 +7,15 @@ import {
   type InsertGeo,
   type Brand,
   type InsertBrand,
+  type BrandList,
+  type InsertBrandList,
   type GeoBrandRanking,
   type InsertGeoBrandRanking,
   websites,
   subIds,
   geos,
   brands,
+  brandLists,
   geoBrandRankings
 } from "@shared/schema";
 import { db } from "./db";
@@ -49,13 +52,21 @@ export interface IStorage {
   updateBrand(id: string, brand: Partial<InsertBrand>): Promise<Brand>;
   deleteBrand(id: string): Promise<void>;
   
+  // BrandList methods
+  getBrandListsByGeo(geoId: string): Promise<BrandList[]>;
+  getBrandList(id: string): Promise<BrandList | undefined>;
+  createBrandList(brandList: InsertBrandList): Promise<BrandList>;
+  updateBrandList(id: string, brandList: Partial<InsertBrandList>): Promise<BrandList>;
+  deleteBrandList(id: string): Promise<void>;
+  
   // GeoBrandRanking methods
+  getRankingsByList(listId: string): Promise<GeoBrandRanking[]>;
   getRankingsByGeo(geoId: string): Promise<GeoBrandRanking[]>;
   getRanking(id: string): Promise<GeoBrandRanking | undefined>;
   createRanking(ranking: InsertGeoBrandRanking): Promise<GeoBrandRanking>;
   updateRanking(id: string, ranking: Partial<InsertGeoBrandRanking>): Promise<GeoBrandRanking>;
   deleteRanking(id: string): Promise<void>;
-  bulkUpsertRankings(geoId: string, rankings: InsertGeoBrandRanking[]): Promise<GeoBrandRanking[]>;
+  bulkUpsertRankings(listId: string, rankings: InsertGeoBrandRanking[]): Promise<GeoBrandRanking[]>;
 }
 
 export class DbStorage implements IStorage {
@@ -213,7 +224,52 @@ export class DbStorage implements IStorage {
     await db.delete(brands).where(eq(brands.id, id));
   }
 
+  // BrandList methods
+  async getBrandListsByGeo(geoId: string): Promise<BrandList[]> {
+    return await db
+      .select()
+      .from(brandLists)
+      .where(eq(brandLists.geoId, geoId))
+      .orderBy(asc(brandLists.sortOrder), asc(brandLists.name));
+  }
+
+  async getBrandList(id: string): Promise<BrandList | undefined> {
+    const [brandList] = await db.select().from(brandLists).where(eq(brandLists.id, id));
+    return brandList;
+  }
+
+  async createBrandList(insertBrandList: InsertBrandList): Promise<BrandList> {
+    const [brandList] = await db.insert(brandLists).values(insertBrandList).returning();
+    return brandList;
+  }
+
+  async updateBrandList(id: string, updateData: Partial<InsertBrandList>): Promise<BrandList> {
+    const [updatedBrandList] = await db
+      .update(brandLists)
+      .set(updateData)
+      .where(eq(brandLists.id, id))
+      .returning();
+    
+    if (!updatedBrandList) {
+      throw new Error("Brand list not found");
+    }
+    
+    return updatedBrandList;
+  }
+
+  async deleteBrandList(id: string): Promise<void> {
+    await db.delete(brandLists).where(eq(brandLists.id, id));
+  }
+
   // GeoBrandRanking methods
+  async getRankingsByList(listId: string): Promise<GeoBrandRanking[]> {
+    return await db
+      .select()
+      .from(geoBrandRankings)
+      .where(eq(geoBrandRankings.listId, listId))
+      .orderBy(asc(geoBrandRankings.position));
+  }
+
   async getRankingsByGeo(geoId: string): Promise<GeoBrandRanking[]> {
     return await db
       .select()
@@ -256,11 +312,11 @@ export class DbStorage implements IStorage {
     await db.delete(geoBrandRankings).where(eq(geoBrandRankings.id, id));
   }
 
-  async bulkUpsertRankings(geoId: string, rankings: InsertGeoBrandRanking[]): Promise<GeoBrandRanking[]> {
+  async bulkUpsertRankings(listId: string, rankings: InsertGeoBrandRanking[]): Promise<GeoBrandRanking[]> {
     // Wrap delete + insert in a transaction for atomicity
     return await db.transaction(async (tx) => {
-      // Delete existing rankings for this GEO
-      await tx.delete(geoBrandRankings).where(eq(geoBrandRankings.geoId, geoId));
+      // Delete existing rankings for this list
+      await tx.delete(geoBrandRankings).where(eq(geoBrandRankings.listId, listId));
       
       // Insert new rankings
       if (rankings.length === 0) return [];
