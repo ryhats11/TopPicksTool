@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { PageNav } from "@/components/page-nav";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useQuery } from "@tanstack/react-query";
 import { Loader2, Search, CheckCircle2, XCircle, AlertCircle, Globe, GripVertical, Plus } from "lucide-react";
 import {
@@ -242,6 +242,10 @@ export default function TaskReconciliation() {
             : result
         )
       );
+
+      // Invalidate queries so Sub-ID Tracker updates
+      queryClient.invalidateQueries({ queryKey: ["/api/websites", websiteId, "subids"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/subids"] });
 
       toast({
         title: "Sub-ID Created",
