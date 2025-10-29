@@ -492,7 +492,16 @@ export default function TaskReconciliation() {
                           const manualMatch = manualBrandSelections[result.taskId];
                           const manualGeoId = manualGeoSelections[result.taskId];
                           // Get the final match to display (manual overrides auto)
-                          const displayMatch = manualMatch || autoMatch;
+                          let displayMatch = manualMatch || autoMatch;
+
+                          // If no match yet, try to get #1 brand from detected GEO
+                          if (!displayMatch && result.detectedGeo) {
+                            const allBrands = getAllBrandsForGeo(result.detectedGeo.id);
+                            const topBrand = allBrands.find(b => b.position === 1);
+                            if (topBrand) {
+                              displayMatch = topBrand;
+                            }
+                          }
 
                           // If we have a match, display it as a badge
                           if (displayMatch) {
@@ -523,31 +532,8 @@ export default function TaskReconciliation() {
                             );
                           }
 
-                          // No match - show GEO selector to open brand list
-                          return (
-                            <Select
-                              value={manualGeoId || ""}
-                              onValueChange={(value) => {
-                                if (value) {
-                                  const selectedGeo = allGeos.find(g => g.id === value);
-                                  if (selectedGeo) {
-                                    handleBrandBadgeClick(selectedGeo);
-                                  }
-                                }
-                              }}
-                            >
-                              <SelectTrigger className="w-40 h-8" data-testid={`select-geo-${index}`}>
-                                <SelectValue placeholder="Select GEO..." />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {allGeos.map((geo) => (
-                                  <SelectItem key={geo.id} value={geo.id}>
-                                    {geo.code} - {geo.name}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          );
+                          // No match and no GEO detected - show "No match"
+                          return <span className="text-muted-foreground text-sm">No match</span>;
                         })()}
                       </TableCell>
                       <TableCell data-testid={`cell-subid-status-${index}`}>
