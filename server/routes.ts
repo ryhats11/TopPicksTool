@@ -1389,6 +1389,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       'AU-AUSTRALIA': 'AU',
       
       // Europe
+      'EU': 'EU',
+      '.EU': 'EU',
+      'EUROPE': 'EU',
+      'EUROPEANUNION': 'EU',
+      
       'DE': 'DE',
       'DEU': 'DE',
       'GERMANY': 'DE',
