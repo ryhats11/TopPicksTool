@@ -406,40 +406,31 @@ export default function BrandRankings() {
     }))
     .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
 
-  // Create GEO mutation with default brand list
+  // Create GEO mutation (backend automatically creates Casino, Sports, Crypto lists)
   const createGeoMutation = useMutation({
     mutationFn: async (data: { name: string; code: string; sortOrder?: number }) => {
       const res = await apiRequest("POST", "/api/geos", data);
       return await res.json();
     },
     onSuccess: async (newGeo: Geo) => {
-      // Create default brand list for the new GEO
-      try {
-        const listRes = await apiRequest("POST", `/api/geos/${newGeo.id}/brand-lists`, {
-          name: "Casino",
-          sortOrder: 0,
-        });
-        const newList = await listRes.json();
-        
-        queryClient.invalidateQueries({ queryKey: ["/api/geos"] });
-        queryClient.invalidateQueries({ queryKey: ["/api/geos", newGeo.id, "brand-lists"] });
-        
-        setSelectedGeoId(newGeo.id);
-        setSelectedListId(newList.id);
-        setIsGeoDialogOpen(false);
-        
-        toast({
-          title: "GEO Added",
-          description: `${newGeo.name} has been created with a Casino brand list.`,
-        });
-      } catch (error) {
-        console.error("Failed to create default brand list:", error);
-        toast({
-          title: "Warning",
-          description: "GEO created but failed to create default brand list.",
-          variant: "destructive",
-        });
+      // Fetch the default brand lists created by backend
+      const listsRes = await fetch(`/api/geos/${newGeo.id}/brand-lists`);
+      const lists = await listsRes.json();
+      
+      queryClient.invalidateQueries({ queryKey: ["/api/geos"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/geos", newGeo.id, "brand-lists"] });
+      
+      setSelectedGeoId(newGeo.id);
+      // Select the first list (Casino)
+      if (lists.length > 0) {
+        setSelectedListId(lists[0].id);
       }
+      setIsGeoDialogOpen(false);
+      
+      toast({
+        title: "GEO Added",
+        description: `${newGeo.name} has been created with Casino, Sports, and Crypto brand lists.`,
+      });
     },
     onError: (error: any) => {
       toast({
