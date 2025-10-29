@@ -639,6 +639,13 @@ export default function BrandRankings() {
                       </div>
                       {!isEditMode ? (
                         <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            onClick={() => setIsBrandDialogOpen(true)}
+                            data-testid="button-manage-brands"
+                          >
+                            Manage Brands
+                          </Button>
                           <Button 
                             variant="outline" 
                             onClick={() => {
