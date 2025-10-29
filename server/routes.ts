@@ -1609,7 +1609,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
                     .filter(r => r.position !== null && r.position >= 1 && r.position <= 10)
                     .sort((a, b) => (a.position || 0) - (b.position || 0));
                   
-                  for (const ranking of featuredRankings) {
+                  for (let i = 0; i < featuredRankings.length; i++) {
+                    const ranking = featuredRankings[i];
                     const brand = brandsById.get(ranking.brandId);
                     if (brand) {
                       const brandNameLower = brand.name.toLowerCase();
@@ -1618,7 +1619,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                       
                       if (taskNameLower.includes(brandNameLower) || taskDescLower.includes(brandNameLower)) {
                         result.brandMatch = {
-                          position: ranking.position,
+                          position: i + 1, // Use position in sorted list (1-indexed)
                           brandName: brand.name,
                         };
                         break; // Use first match
