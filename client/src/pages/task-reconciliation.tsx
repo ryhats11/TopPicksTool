@@ -4,10 +4,12 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PageNav } from "@/components/page-nav";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { Loader2, Search, CheckCircle2, XCircle, AlertCircle, Globe } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { Loader2, Search, CheckCircle2, XCircle, AlertCircle, Globe, Trophy } from "lucide-react";
 
 interface ReconciliationResult {
   taskId: string;
@@ -31,6 +33,18 @@ export default function TaskReconciliation() {
   const [taskIds, setTaskIds] = useState("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [results, setResults] = useState<ReconciliationResult[]>([]);
+  const [selectedGeoId, setSelectedGeoId] = useState<string>("");
+
+  // Fetch GEOs
+  const { data: geos = [] } = useQuery<any[]>({
+    queryKey: ["/api/geos"],
+  });
+
+  // Fetch featured brands for selected GEO
+  const { data: featuredBrands = [], isLoading: loadingBrands } = useQuery<any[]>({
+    queryKey: [`/api/geos/${selectedGeoId}/rankings`],
+    enabled: !!selectedGeoId,
+  });
 
   // Helper function to clean website name - removes *pm- prefix
   const cleanWebsiteName = (name: string | null): string | null => {
@@ -142,6 +156,76 @@ export default function TaskReconciliation() {
             )}
           </Button>
         </div>
+          </Card>
+
+          <Card className="p-6 mb-6">
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 mb-4">
+                <Trophy className="h-5 w-5 text-primary" />
+                <h2 className="text-lg font-semibold">Featured Brands Reference</h2>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium mb-2">
+                  Select GEO to view top 10 featured brands
+                </label>
+                <Select 
+                  value={selectedGeoId} 
+                  onValueChange={setSelectedGeoId}
+                >
+                  <SelectTrigger className="w-full" data-testid="select-geo-brands">
+                    <SelectValue placeholder="Select a GEO..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {geos.map((geo: any) => (
+                      <SelectItem 
+                        key={geo.id} 
+                        value={geo.id}
+                        data-testid={`select-geo-${geo.code.toLowerCase()}`}
+                      >
+                        {geo.code} - {geo.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {selectedGeoId && (
+                <div className="border rounded-md p-4">
+                  {loadingBrands ? (
+                    <div className="flex items-center justify-center py-8">
+                      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                    </div>
+                  ) : (
+                    <>
+                      {featuredBrands.filter((r: any) => r.position !== null).length > 0 ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                          {featuredBrands
+                            .filter((r: any) => r.position !== null)
+                            .sort((a: any, b: any) => a.position - b.position)
+                            .map((ranking: any) => (
+                              <div 
+                                key={ranking.id} 
+                                className="flex items-center gap-2 p-2 rounded-md hover-elevate"
+                                data-testid={`featured-brand-${ranking.position}`}
+                              >
+                                <Badge variant="outline" className="font-mono min-w-[3rem]">
+                                  #{ranking.position}
+                                </Badge>
+                                <span className="font-medium">{ranking.brand.name}</span>
+                              </div>
+                            ))}
+                        </div>
+                      ) : (
+                        <p className="text-center text-muted-foreground py-4">
+                          No featured brands configured for this GEO
+                        </p>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
           </Card>
 
           {results.length > 0 && (
