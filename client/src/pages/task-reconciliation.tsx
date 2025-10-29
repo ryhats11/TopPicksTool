@@ -553,7 +553,7 @@ export default function TaskReconciliation() {
                         {result.subIdValue || <span className="text-muted-foreground">-</span>}
                       </TableCell>
                       <TableCell data-testid={`cell-actions-${index}`}>
-                        {!result.subIdExists && !result.error && (
+                        {!result.subIdExists && !result.error && !result.unmatchedGeoValue && (
                           result.websiteId ? (
                             <Button
                               size="sm"
