@@ -1188,21 +1188,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const { taskId } = req.params;
-      const { geoId } = req.body;
+      const { listId } = req.body;
 
-      if (!geoId) {
-        return res.status(400).json({ error: "geoId is required" });
+      if (!listId) {
+        return res.status(400).json({ error: "listId is required" });
+      }
+
+      // Fetch brand list details
+      const brandList = await storage.getBrandList(listId);
+      if (!brandList) {
+        return res.status(404).json({ error: "Brand list not found" });
       }
 
       // Fetch GEO details
       const geos = await storage.getGeos();
-      const geo = geos.find((g: any) => g.id === geoId);
+      const geo = geos.find((g: any) => g.id === brandList.geoId);
       if (!geo) {
         return res.status(404).json({ error: "GEO not found" });
       }
 
-      // Fetch all brand rankings for this GEO
-      const rankings = await storage.getRankingsByGeo(geoId);
+      // Fetch all brand rankings for this brand list
+      const rankings = await storage.getRankingsByList(listId);
       const brands = await storage.getBrands();
       const brandsById = new Map(brands.map((b: any) => [b.id, b]));
 
