@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { PageNav } from "@/components/page-nav";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { Loader2, Search, CheckCircle2, XCircle, AlertCircle, Globe } from "lucide-react";
@@ -83,15 +84,19 @@ export default function TaskReconciliation() {
   };
 
   return (
-    <div className="container mx-auto p-6 max-w-7xl">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold mb-2">Task Reconciliation</h1>
-        <p className="text-muted-foreground">
-          Auto-detects Target GEO from each task and cross-references with featured brands and Sub-ID tracker
-        </p>
-      </div>
+    <div className="flex flex-col h-screen">
+      <PageNav />
+      
+      <main className="flex-1 overflow-auto">
+        <div className="container mx-auto p-6 max-w-7xl">
+          <div className="mb-6">
+            <h1 className="text-3xl font-bold mb-2">Task Reconciliation</h1>
+            <p className="text-muted-foreground">
+              Auto-detects Target GEO from each task and cross-references with featured brands and Sub-ID tracker
+            </p>
+          </div>
 
-      <Card className="p-6 mb-6">
+          <Card className="p-6 mb-6">
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium mb-2">
@@ -128,10 +133,10 @@ export default function TaskReconciliation() {
             )}
           </Button>
         </div>
-      </Card>
+          </Card>
 
-      {results.length > 0 && (
-        <Card>
+          {results.length > 0 && (
+            <Card>
           <div className="p-6">
             <h2 className="text-xl font-semibold mb-4">
               Reconciliation Results
@@ -231,18 +236,20 @@ export default function TaskReconciliation() {
               )}
             </div>
           </div>
-        </Card>
-      )}
+            </Card>
+          )}
 
-      {results.length === 0 && !isAnalyzing && (
-        <Card className="p-12">
-          <div className="text-center text-muted-foreground">
-            <Search className="h-12 w-12 mx-auto mb-4 opacity-50" />
-            <p className="text-lg">No results yet</p>
-            <p className="text-sm">Enter task IDs to begin analysis</p>
-          </div>
-        </Card>
-      )}
+          {results.length === 0 && !isAnalyzing && (
+            <Card className="p-12">
+              <div className="text-center text-muted-foreground">
+                <Search className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p className="text-lg">No results yet</p>
+                <p className="text-sm">Enter task IDs to begin analysis</p>
+              </div>
+            </Card>
+          )}
+        </div>
+      </main>
     </div>
   );
 }
