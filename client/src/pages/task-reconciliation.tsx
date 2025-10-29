@@ -553,29 +553,27 @@ export default function TaskReconciliation() {
                           }
 
                           return (
-                            <div className="flex flex-col gap-1.5">
+                            <div className="flex flex-col gap-2 min-w-[180px]">
                               {/* Brand badge display */}
                               {displayMatch ? (
-                                <div className="flex items-center gap-2">
-                                  <Badge 
-                                    variant="default" 
-                                    className={effectiveGeo ? "gap-1 cursor-pointer hover-elevate active-elevate-2" : "gap-1"}
-                                    onClick={effectiveGeo ? () => handleBrandBadgeClick(effectiveGeo) : undefined}
-                                    onKeyDown={effectiveGeo ? (e) => {
-                                      if (e.key === 'Enter' || e.key === ' ') {
-                                        e.preventDefault();
-                                        handleBrandBadgeClick(effectiveGeo);
-                                      }
-                                    } : undefined}
-                                    role={effectiveGeo ? "button" : undefined}
-                                    tabIndex={effectiveGeo ? 0 : undefined}
-                                    data-testid={`badge-brand-match-${index}`}
-                                  >
-                                    {displayMatch.position !== null && displayMatch.position !== undefined 
-                                      ? `#${displayMatch.position} ` 
-                                      : ''}{displayMatch.brandName}
-                                  </Badge>
-                                </div>
+                                <Badge 
+                                  variant="default" 
+                                  className={effectiveGeo ? "gap-1 cursor-pointer hover-elevate active-elevate-2 w-fit" : "gap-1 w-fit"}
+                                  onClick={effectiveGeo ? () => handleBrandBadgeClick(effectiveGeo) : undefined}
+                                  onKeyDown={effectiveGeo ? (e) => {
+                                    if (e.key === 'Enter' || e.key === ' ') {
+                                      e.preventDefault();
+                                      handleBrandBadgeClick(effectiveGeo);
+                                    }
+                                  } : undefined}
+                                  role={effectiveGeo ? "button" : undefined}
+                                  tabIndex={effectiveGeo ? 0 : undefined}
+                                  data-testid={`badge-brand-match-${index}`}
+                                >
+                                  {displayMatch.position !== null && displayMatch.position !== undefined 
+                                    ? `#${displayMatch.position} ` 
+                                    : ''}{displayMatch.brandName}
+                                </Badge>
                               ) : (
                                 <span className="text-muted-foreground text-sm">No match</span>
                               )}
@@ -591,8 +589,8 @@ export default function TaskReconciliation() {
                                 }}
                                 data-testid={`select-brand-geo-${index}`}
                               >
-                                <SelectTrigger className="h-7 text-xs">
-                                  <SelectValue placeholder="Select GEO for brands" />
+                                <SelectTrigger className="h-8 text-xs w-full">
+                                  <SelectValue placeholder="Select GEO" />
                                 </SelectTrigger>
                                 <SelectContent>
                                   {allGeos.map((geo) => (
