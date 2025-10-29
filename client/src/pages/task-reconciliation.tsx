@@ -96,6 +96,30 @@ function SortableBrandItem({ brand, index }: SortableBrandItemProps) {
   );
 }
 
+// Helper function to intelligently select brand list based on Subniche
+function selectBrandListBySubniche(subniche: string | null | undefined, availableLists: BrandList[]): string | null {
+  if (!subniche || availableLists.length === 0) {
+    return availableLists.length > 0 ? availableLists[0].id : null;
+  }
+  
+  const subnicheLC = subniche.toLowerCase();
+  
+  // Check for Crypto keywords
+  if (subnicheLC.includes('crypto') || subnicheLC.includes('bitcoin')) {
+    const cryptoList = availableLists.find(list => list.name.toLowerCase() === 'crypto');
+    if (cryptoList) return cryptoList.id;
+  }
+  
+  // Check for Sports keywords
+  if (subnicheLC.includes('sports') || subnicheLC.includes('betting') || subnicheLC.includes('bookmaker')) {
+    const sportsList = availableLists.find(list => list.name.toLowerCase() === 'sports');
+    if (sportsList) return sportsList.id;
+  }
+  
+  // Default to first list (typically Casino)
+  return availableLists[0].id;
+}
+
 export default function TaskReconciliation() {
   const { toast } = useToast();
   const [taskIds, setTaskIds] = useState("");
@@ -241,12 +265,16 @@ export default function TaskReconciliation() {
       [taskId]: geoId,
     }));
     
-    // Auto-select the first brand list for this GEO
+    // Auto-select brand list based on Subniche
     const brandLists = allBrandListsQueries.data?.[geoId] || [];
-    if (brandLists.length > 0) {
+    // Find the result for this task to get the Subniche
+    const currentResult = results.find(r => r.taskId === taskId);
+    const selectedListId = selectBrandListBySubniche(currentResult?.subniche, brandLists);
+    
+    if (selectedListId) {
       setManualBrandListSelections(prev => ({
         ...prev,
-        [taskId]: brandLists[0].id,
+        [taskId]: selectedListId,
       }));
     } else {
       // Clear brand list selection if no lists available
@@ -315,7 +343,7 @@ export default function TaskReconciliation() {
     }));
   };
 
-  // Auto-select first brand list for detected GEOs when results come in
+  // Auto-select brand list based on Subniche for detected GEOs when results come in
   useEffect(() => {
     if (!allBrandListsQueries.data || results.length === 0) return;
 
@@ -323,10 +351,11 @@ export default function TaskReconciliation() {
       // Only auto-select for detected GEOs that don't have manual selections
       if (result.detectedGeo && !manualGeoSelections[result.taskId] && !manualBrandListSelections[result.taskId]) {
         const brandLists = allBrandListsQueries.data[result.detectedGeo.id] || [];
-        if (brandLists.length > 0) {
+        const selectedListId = selectBrandListBySubniche(result.subniche, brandLists);
+        if (selectedListId) {
           setManualBrandListSelections(prev => ({
             ...prev,
-            [result.taskId]: brandLists[0].id,
+            [result.taskId]: selectedListId,
           }));
         }
       }
@@ -623,8 +652,8 @@ export default function TaskReconciliation() {
                           // Get available brand lists for the effective GEO
                           const availableBrandLists = effectiveGeoId ? (allBrandListsQueries.data?.[effectiveGeoId] || []) : [];
                           
-                          // Determine which brand list to use
-                          const effectiveListId = manualListId || (availableBrandLists.length > 0 ? availableBrandLists[0]?.id : null);
+                          // Determine which brand list to use - intelligently match based on Subniche
+                          const effectiveListId = manualListId || selectBrandListBySubniche(result.subniche, availableBrandLists);
                           
                           // Get the final match to display
                           let displayMatch: { position: number | null; brandName: string; brandId: string } | null = manualMatch;
@@ -779,8 +808,8 @@ export default function TaskReconciliation() {
                           // Get available brand lists for the effective GEO
                           const availableBrandLists = effectiveGeoId ? (allBrandListsQueries.data?.[effectiveGeoId] || []) : [];
                           
-                          // Determine which brand list to use
-                          const effectiveListId = manualListId || (availableBrandLists.length > 0 ? availableBrandLists[0]?.id : null);
+                          // Determine which brand list to use - intelligently match based on Subniche
+                          const effectiveListId = manualListId || selectBrandListBySubniche(result.subniche, availableBrandLists);
                           
                           if (effectiveListId && !result.error) {
                             return (

@@ -220,7 +220,10 @@ Preferred communication style: Simple, everyday language.
      - Requires exact word-by-word equality (no substring matches)
      - Only accepts unambiguous single match
    - Falls back to task name matching if "*Publisher" is not set, ambiguous, or no match found
-   - Fetches all brand lists for the detected GEO and automatically selects the first list
+   - Extracts "*Subniche" custom field and intelligently selects the appropriate brand list:
+     - If Subniche contains "Crypto" or "Bitcoin" → selects Crypto brand list
+     - If Subniche contains "Sports", "betting", or "bookmaker" → selects Sports brand list
+     - Otherwise defaults to first brand list (typically Casino)
    - Searches task name/description for featured brand names (top 10 for that task's specific brand list)
    - Checks if Sub-ID already exists for the task ID
 
