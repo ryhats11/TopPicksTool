@@ -1384,15 +1384,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   );
                   
                   if (publisherField) {
-                    console.log(`[ClickUp Task ${taskId}] *Publisher field found:`, JSON.stringify(publisherField, null, 2));
+                    console.log(`[ClickUp Task ${taskId}] *Publisher field found, type: ${publisherField.type}, value:`, publisherField.value);
                     
-                    if (publisherField.value) {
-                      // The value might be a string or an object with nested properties
-                      publisherValue = typeof publisherField.value === 'string' 
-                        ? publisherField.value 
-                        : publisherField.value.name || publisherField.value.label || publisherField.value.value || null;
-                      
-                      console.log(`[ClickUp Task ${taskId}] Publisher extracted: "${publisherValue}"`);
+                    if (publisherField.value !== null && publisherField.value !== undefined) {
+                      // Handle dropdown/select fields (value is a numeric ID)
+                      if (publisherField.type === 'drop_down' || publisherField.type === 'labels') {
+                        // Value is an ID that references an option
+                        const options = publisherField.type_config?.options || [];
+                        const selectedOption = options.find((opt: any) => opt.id === publisherField.value || opt.orderindex === publisherField.value);
+                        
+                        if (selectedOption) {
+                          publisherValue = selectedOption.name || selectedOption.label || null;
+                          console.log(`[ClickUp Task ${taskId}] Publisher extracted from dropdown: "${publisherValue}"`);
+                        } else {
+                          console.log(`[ClickUp Task ${taskId}] Could not find option for value: ${publisherField.value}`);
+                        }
+                      } else {
+                        // Handle text fields or other field types
+                        publisherValue = typeof publisherField.value === 'string' 
+                          ? publisherField.value 
+                          : publisherField.value.name || publisherField.value.label || publisherField.value.value || null;
+                        
+                        console.log(`[ClickUp Task ${taskId}] Publisher extracted: "${publisherValue}"`);
+                      }
                     } else {
                       console.log(`[ClickUp Task ${taskId}] *Publisher field has no value`);
                     }
