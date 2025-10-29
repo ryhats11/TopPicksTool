@@ -1351,9 +1351,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
               if (response.ok) {
                 const taskData = await response.json();
                 
-                // Extract *Target GEO from custom fields
+                // Extract custom fields
                 let taskGeoId: string | null = null;
+                let publisherValue: string | null = null;
+                
                 if (taskData.custom_fields && Array.isArray(taskData.custom_fields)) {
+                  // Extract *Target GEO
                   const targetGeoField = taskData.custom_fields.find((field: any) => 
                     field.name === '*Target GEO'
                   );
@@ -1376,19 +1379,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
                       }
                     }
                   }
+                  
+                  // Extract *Publisher
+                  const publisherField = taskData.custom_fields.find((field: any) => 
+                    field.name === '*Publisher'
+                  );
+                  
+                  if (publisherField && publisherField.value) {
+                    // The value might be a string or an object with nested properties
+                    publisherValue = typeof publisherField.value === 'string' 
+                      ? publisherField.value 
+                      : publisherField.value.name || publisherField.value.value || null;
+                  }
                 }
                 
-                // Try to determine website from task name
                 const taskName = taskData.name || '';
                 
-                // Try to match task name with website names
-                const matchedWebsite = websites.find(w => 
-                  taskName.toLowerCase().includes(w.name.toLowerCase())
-                );
+                // Try to match website using *Publisher custom field first
+                if (publisherValue && !result.websiteName) {
+                  const publisherLower = publisherValue.toLowerCase();
+                  const matchedWebsite = websites.find(w => {
+                    const websiteLower = w.name.toLowerCase();
+                    // Check for exact match or if publisher contains website name
+                    return websiteLower === publisherLower || 
+                           publisherLower.includes(websiteLower) ||
+                           websiteLower.includes(publisherLower);
+                  });
+                  
+                  if (matchedWebsite) {
+                    result.websiteName = matchedWebsite.name;
+                    result.websiteId = matchedWebsite.id;
+                  }
+                }
                 
-                if (matchedWebsite && !result.websiteName) {
-                  result.websiteName = matchedWebsite.name;
-                  result.websiteId = matchedWebsite.id;
+                // Fallback: Try to match website from task name if not already matched
+                if (!result.websiteName) {
+                  const matchedWebsite = websites.find(w => 
+                    taskName.toLowerCase().includes(w.name.toLowerCase())
+                  );
+                  
+                  if (matchedWebsite) {
+                    result.websiteName = matchedWebsite.name;
+                    result.websiteId = matchedWebsite.id;
+                  }
                 }
 
                 // Try to match against featured brands for this task's specific GEO
