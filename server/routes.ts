@@ -1408,29 +1408,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 if (publisherValue && !result.websiteName) {
                   const publisherNormalized = normalizeForMatching(publisherValue);
                   
-                  // Find all potential matches
-                  const potentialMatches = websites.filter(w => {
-                    const websiteNormalized = normalizeForMatching(w.name);
-                    // Check for exact match or if one contains the other
-                    return websiteNormalized === publisherNormalized || 
-                           publisherNormalized.includes(websiteNormalized) ||
-                           websiteNormalized.includes(publisherNormalized);
-                  });
+                  // First, try exact match (most reliable)
+                  const exactMatch = websites.find(w => 
+                    normalizeForMatching(w.name) === publisherNormalized
+                  );
                   
-                  // Only use publisher match if it's unambiguous (single match or exact match)
-                  if (potentialMatches.length === 1) {
-                    result.websiteName = potentialMatches[0].name;
-                    result.websiteId = potentialMatches[0].id;
-                  } else if (potentialMatches.length > 1) {
-                    // If multiple matches, try exact match
-                    const exactMatch = potentialMatches.find(w => 
-                      normalizeForMatching(w.name) === publisherNormalized
-                    );
-                    if (exactMatch) {
-                      result.websiteName = exactMatch.name;
-                      result.websiteId = exactMatch.id;
+                  if (exactMatch) {
+                    result.websiteName = exactMatch.name;
+                    result.websiteId = exactMatch.id;
+                  } else {
+                    // If no exact match, look for word-boundary matches
+                    // Common filler words to ignore
+                    const fillerWords = new Set(['publisher', 'site', 'casino', 'poker', 'betting', 'the', 'a', 'an']);
+                    
+                    const publisherWords = publisherNormalized.split(/\s+/).filter(w => !fillerWords.has(w));
+                    const potentialMatches = websites.filter(w => {
+                      const websiteNormalized = normalizeForMatching(w.name);
+                      const websiteWords = websiteNormalized.split(/\s+/).filter(w => !fillerWords.has(w));
+                      
+                      // Skip if no meaningful words
+                      if (websiteWords.length === 0 || publisherWords.length === 0) return false;
+                      
+                      // Check if all website words appear exactly in publisher words (in order)
+                      let publisherIdx = 0;
+                      for (const websiteWord of websiteWords) {
+                        const found = publisherWords.slice(publisherIdx).findIndex(pw => pw === websiteWord);
+                        if (found === -1) return false;
+                        publisherIdx += found + 1;
+                      }
+                      return true;
+                    });
+                    
+                    // Only accept if exactly one unambiguous match
+                    if (potentialMatches.length === 1) {
+                      result.websiteName = potentialMatches[0].name;
+                      result.websiteId = potentialMatches[0].id;
                     }
-                    // Otherwise, fall through to task name matching
+                    // Otherwise fall back to task name matching
                   }
                 }
                 
