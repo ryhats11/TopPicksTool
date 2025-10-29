@@ -10,7 +10,7 @@ import { PageNav } from "@/components/page-nav";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useQuery } from "@tanstack/react-query";
-import { Loader2, Search, CheckCircle2, XCircle, AlertCircle, Globe, GripVertical, Plus, AlertTriangle } from "lucide-react";
+import { Loader2, Search, CheckCircle2, XCircle, AlertCircle, Globe, GripVertical, Plus, AlertTriangle, Send, Save } from "lucide-react";
 import {
   DndContext,
   closestCenter,
@@ -122,16 +122,31 @@ function selectBrandListBySubniche(subniche: string | null | undefined, availabl
 
 export default function TaskReconciliation() {
   const { toast } = useToast();
-  const [taskIds, setTaskIds] = useState("");
+  const [taskIds, setTaskIds] = useState(() => {
+    const saved = localStorage.getItem('topPicksTaskIds');
+    return saved || "";
+  });
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [results, setResults] = useState<ReconciliationResult[]>([]);
+  const [results, setResults] = useState<ReconciliationResult[]>(() => {
+    const saved = localStorage.getItem('topPicksResults');
+    return saved ? JSON.parse(saved) : [];
+  });
   const [selectedGeoForBrands, setSelectedGeoForBrands] = useState<{ id: string; code: string; name: string; listId: string; listName: string } | null>(null);
   const [localBrands, setLocalBrands] = useState<RankingWithBrand[]>([]);
   const [creatingSubIds, setCreatingSubIds] = useState<Set<string>>(new Set());
   const [postingBrands, setPostingBrands] = useState<Set<string>>(new Set());
-  const [manualBrandSelections, setManualBrandSelections] = useState<Record<string, { position: number | null; brandName: string; brandId: string }>>({});
-  const [manualGeoSelections, setManualGeoSelections] = useState<Record<string, string>>({}); // taskId -> geoId
-  const [manualBrandListSelections, setManualBrandListSelections] = useState<Record<string, string>>({}); // taskId -> brandListId
+  const [manualBrandSelections, setManualBrandSelections] = useState<Record<string, { position: number | null; brandName: string; brandId: string }>>(() => {
+    const saved = localStorage.getItem('topPicksManualBrandSelections');
+    return saved ? JSON.parse(saved) : {};
+  });
+  const [manualGeoSelections, setManualGeoSelections] = useState<Record<string, string>>(() => {
+    const saved = localStorage.getItem('topPicksManualGeoSelections');
+    return saved ? JSON.parse(saved) : {};
+  });
+  const [manualBrandListSelections, setManualBrandListSelections] = useState<Record<string, string>>(() => {
+    const saved = localStorage.getItem('topPicksManualBrandListSelections');
+    return saved ? JSON.parse(saved) : {};
+  });
 
   // Fetch all GEOs to get rankings for each
   const { data: allGeos = [] } = useQuery<Array<{ id: string; code: string; name: string }>>({
@@ -343,6 +358,27 @@ export default function TaskReconciliation() {
     }));
   };
 
+  // Persist state to localStorage
+  useEffect(() => {
+    localStorage.setItem('topPicksTaskIds', taskIds);
+  }, [taskIds]);
+
+  useEffect(() => {
+    localStorage.setItem('topPicksResults', JSON.stringify(results));
+  }, [results]);
+
+  useEffect(() => {
+    localStorage.setItem('topPicksManualBrandSelections', JSON.stringify(manualBrandSelections));
+  }, [manualBrandSelections]);
+
+  useEffect(() => {
+    localStorage.setItem('topPicksManualGeoSelections', JSON.stringify(manualGeoSelections));
+  }, [manualGeoSelections]);
+
+  useEffect(() => {
+    localStorage.setItem('topPicksManualBrandListSelections', JSON.stringify(manualBrandListSelections));
+  }, [manualBrandListSelections]);
+
   // Auto-select brand list based on Subniche for detected GEOs when results come in
   useEffect(() => {
     if (!allBrandListsQueries.data || results.length === 0) return;
@@ -519,6 +555,145 @@ export default function TaskReconciliation() {
         return next;
       });
     }
+  };
+
+  const handleCreateAllSubIds = async () => {
+    const tasksToCreate = results.filter(
+      r => !r.subIdExists && r.websiteId && !r.error
+    );
+
+    if (tasksToCreate.length === 0) {
+      toast({
+        title: "No Tasks Available",
+        description: "All tasks already have Sub-IDs or don't have valid websites.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const result of tasksToCreate) {
+      setCreatingSubIds(prev => new Set(prev).add(result.taskId));
+      
+      try {
+        const res = await apiRequest("POST", "/api/create-subid-from-task", {
+          taskId: result.taskId,
+          websiteId: result.websiteId!,
+        });
+
+        const newSubId = await res.json();
+
+        setResults(prevResults =>
+          prevResults.map(r =>
+            r.taskId === result.taskId
+              ? {
+                  ...r,
+                  subIdExists: true,
+                  subIdValue: newSubId.value,
+                }
+              : r
+          )
+        );
+
+        queryClient.invalidateQueries({ queryKey: ["/api/websites", result.websiteId!, "subids"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/subids"] });
+
+        successCount++;
+      } catch (error: any) {
+        failCount++;
+      } finally {
+        setCreatingSubIds(prev => {
+          const next = new Set(prev);
+          next.delete(result.taskId);
+          return next;
+        });
+      }
+    }
+
+    toast({
+      title: "Bulk Creation Complete",
+      description: `Created ${successCount} Sub-IDs. ${failCount > 0 ? `${failCount} failed.` : ''}`,
+      variant: failCount > 0 ? "destructive" : "default",
+    });
+  };
+
+  const handlePostAllBrands = async () => {
+    const tasksToPost = results.filter(result => {
+      const manualGeoId = manualGeoSelections[result.taskId];
+      const effectiveGeoId = manualGeoId || result.detectedGeo?.id;
+      const availableBrandLists = effectiveGeoId ? (allBrandListsQueries.data?.[effectiveGeoId] || []) : [];
+      const manualListId = manualBrandListSelections[result.taskId];
+      const effectiveListId = manualListId || selectBrandListBySubniche(result.subniche, availableBrandLists);
+      
+      return result.subIdExists && effectiveListId && !result.error;
+    });
+
+    if (tasksToPost.length === 0) {
+      toast({
+        title: "No Tasks Available",
+        description: "No tasks with Sub-IDs and valid brand lists found.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const result of tasksToPost) {
+      const manualGeoId = manualGeoSelections[result.taskId];
+      const effectiveGeoId = manualGeoId || result.detectedGeo?.id;
+      const availableBrandLists = effectiveGeoId ? (allBrandListsQueries.data?.[effectiveGeoId] || []) : [];
+      const manualListId = manualBrandListSelections[result.taskId];
+      const effectiveListId = manualListId || selectBrandListBySubniche(result.subniche, availableBrandLists);
+
+      if (!effectiveListId) continue;
+
+      setPostingBrands(prev => new Set(prev).add(result.taskId));
+      
+      try {
+        const res = await apiRequest("POST", `/api/reconcile-tasks/${result.taskId}/post-brands`, {
+          listId: effectiveListId,
+        });
+
+        await res.json();
+        successCount++;
+      } catch (error: any) {
+        failCount++;
+      } finally {
+        setPostingBrands(prev => {
+          const next = new Set(prev);
+          next.delete(result.taskId);
+          return next;
+        });
+      }
+    }
+
+    toast({
+      title: "Bulk Posting Complete",
+      description: `Posted to ${successCount} tasks. ${failCount > 0 ? `${failCount} failed.` : ''}`,
+      variant: failCount > 0 ? "destructive" : "default",
+    });
+  };
+
+  const handleSaveAndReset = () => {
+    setTaskIds("");
+    setResults([]);
+    setManualBrandSelections({});
+    setManualGeoSelections({});
+    setManualBrandListSelections({});
+    localStorage.removeItem('topPicksTaskIds');
+    localStorage.removeItem('topPicksResults');
+    localStorage.removeItem('topPicksManualBrandSelections');
+    localStorage.removeItem('topPicksManualGeoSelections');
+    localStorage.removeItem('topPicksManualBrandListSelections');
+    
+    toast({
+      title: "Reset Complete",
+      description: "Analysis cleared successfully.",
+    });
   };
 
   return (
@@ -886,6 +1061,75 @@ export default function TaskReconciliation() {
                   </span>
                 </div>
               )}
+            </div>
+
+            <div className="mt-6 pt-6 border-t flex flex-wrap gap-3">
+              <Button
+                onClick={handleCreateAllSubIds}
+                disabled={results.filter(r => !r.subIdExists && r.websiteId && !r.error).length === 0 || creatingSubIds.size > 0}
+                data-testid="button-create-all-subids"
+              >
+                {creatingSubIds.size > 0 ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Creating {creatingSubIds.size}...
+                  </>
+                ) : (
+                  <>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Create All Sub-IDs ({results.filter(r => !r.subIdExists && r.websiteId && !r.error).length})
+                  </>
+                )}
+              </Button>
+
+              <Button
+                onClick={handlePostAllBrands}
+                variant="secondary"
+                disabled={(() => {
+                  const eligibleTasks = results.filter(result => {
+                    const manualGeoId = manualGeoSelections[result.taskId];
+                    const effectiveGeoId = manualGeoId || result.detectedGeo?.id;
+                    const availableBrandLists = effectiveGeoId ? (allBrandListsQueries.data?.[effectiveGeoId] || []) : [];
+                    const manualListId = manualBrandListSelections[result.taskId];
+                    const effectiveListId = manualListId || selectBrandListBySubniche(result.subniche, availableBrandLists);
+                    return result.subIdExists && effectiveListId && !result.error;
+                  });
+                  return eligibleTasks.length === 0 || postingBrands.size > 0;
+                })()}
+                data-testid="button-post-all-brands"
+              >
+                {postingBrands.size > 0 ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Posting {postingBrands.size}...
+                  </>
+                ) : (
+                  <>
+                    <Send className="h-4 w-4 mr-2" />
+                    Post All Brands ({(() => {
+                      const eligibleTasks = results.filter(result => {
+                        const manualGeoId = manualGeoSelections[result.taskId];
+                        const effectiveGeoId = manualGeoId || result.detectedGeo?.id;
+                        const availableBrandLists = effectiveGeoId ? (allBrandListsQueries.data?.[effectiveGeoId] || []) : [];
+                        const manualListId = manualBrandListSelections[result.taskId];
+                        const effectiveListId = manualListId || selectBrandListBySubniche(result.subniche, availableBrandLists);
+                        return result.subIdExists && effectiveListId && !result.error;
+                      });
+                      return eligibleTasks.length;
+                    })()})
+                  </>
+                )}
+              </Button>
+
+              <Button
+                onClick={handleSaveAndReset}
+                variant="outline"
+                className="ml-auto"
+                data-testid="button-save-reset"
+              >
+                <Save className="h-4 w-4 mr-2" />
+                Save & Reset
+              </Button>
             </div>
           </div>
             </Card>
