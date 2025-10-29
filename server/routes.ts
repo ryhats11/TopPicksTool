@@ -1282,9 +1282,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Build the brand list comment
       let commentText = `🥇 **Top Brands for ${geo.code}**\n\n`;
       
+      // Add Task ID
+      commentText += `**Task ID:** \`${taskId}\`\n`;
+      
       // Add Sub-ID if it exists
       if (subId) {
         commentText += `**Sub-ID:** \`${subId.value}\`\n\n`;
+      } else {
+        commentText += '\n';
       }
       
       featuredRankings.forEach((ranking: any) => {
