@@ -751,9 +751,79 @@ export default function TaskReconciliation() {
           {results.length > 0 && (
             <Card>
           <div className="p-6">
-            <h2 className="text-xl font-semibold mb-4">
-              Reconciliation Results
-            </h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-semibold">
+                Reconciliation Results
+              </h2>
+              
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  onClick={handleCreateAllSubIds}
+                  disabled={results.filter(r => !r.subIdExists && r.websiteId && !r.error).length === 0 || creatingSubIds.size > 0}
+                  data-testid="button-create-all-subids"
+                >
+                  {creatingSubIds.size > 0 ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Creating {creatingSubIds.size}...
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Create All ({results.filter(r => !r.subIdExists && r.websiteId && !r.error).length})
+                    </>
+                  )}
+                </Button>
+
+                <Button
+                  onClick={handlePostAllBrands}
+                  variant="secondary"
+                  disabled={(() => {
+                    const eligibleTasks = results.filter(result => {
+                      const manualGeoId = manualGeoSelections[result.taskId];
+                      const effectiveGeoId = manualGeoId || result.detectedGeo?.id;
+                      const availableBrandLists = effectiveGeoId ? (allBrandListsQueries.data?.[effectiveGeoId] || []) : [];
+                      const manualListId = manualBrandListSelections[result.taskId];
+                      const effectiveListId = manualListId || selectBrandListBySubniche(result.subniche, availableBrandLists);
+                      return result.subIdExists && effectiveListId && !result.error;
+                    });
+                    return eligibleTasks.length === 0 || postingBrands.size > 0;
+                  })()}
+                  data-testid="button-post-all-brands"
+                >
+                  {postingBrands.size > 0 ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Posting {postingBrands.size}...
+                    </>
+                  ) : (
+                    <>
+                      <Send className="h-4 w-4 mr-2" />
+                      Post All ({(() => {
+                        const eligibleTasks = results.filter(result => {
+                          const manualGeoId = manualGeoSelections[result.taskId];
+                          const effectiveGeoId = manualGeoId || result.detectedGeo?.id;
+                          const availableBrandLists = effectiveGeoId ? (allBrandListsQueries.data?.[effectiveGeoId] || []) : [];
+                          const manualListId = manualBrandListSelections[result.taskId];
+                          const effectiveListId = manualListId || selectBrandListBySubniche(result.subniche, availableBrandLists);
+                          return result.subIdExists && effectiveListId && !result.error;
+                        });
+                        return eligibleTasks.length;
+                      })()})
+                    </>
+                  )}
+                </Button>
+
+                <Button
+                  onClick={handleSaveAndReset}
+                  variant="outline"
+                  data-testid="button-save-reset"
+                >
+                  <Save className="h-4 w-4 mr-2" />
+                  Save & Reset
+                </Button>
+              </div>
+            </div>
 
             <div className="overflow-x-auto">
               <Table>
@@ -1061,75 +1131,6 @@ export default function TaskReconciliation() {
                   </span>
                 </div>
               )}
-            </div>
-
-            <div className="mt-6 pt-6 border-t flex flex-wrap gap-3">
-              <Button
-                onClick={handleCreateAllSubIds}
-                disabled={results.filter(r => !r.subIdExists && r.websiteId && !r.error).length === 0 || creatingSubIds.size > 0}
-                data-testid="button-create-all-subids"
-              >
-                {creatingSubIds.size > 0 ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Creating {creatingSubIds.size}...
-                  </>
-                ) : (
-                  <>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Create All Sub-IDs ({results.filter(r => !r.subIdExists && r.websiteId && !r.error).length})
-                  </>
-                )}
-              </Button>
-
-              <Button
-                onClick={handlePostAllBrands}
-                variant="secondary"
-                disabled={(() => {
-                  const eligibleTasks = results.filter(result => {
-                    const manualGeoId = manualGeoSelections[result.taskId];
-                    const effectiveGeoId = manualGeoId || result.detectedGeo?.id;
-                    const availableBrandLists = effectiveGeoId ? (allBrandListsQueries.data?.[effectiveGeoId] || []) : [];
-                    const manualListId = manualBrandListSelections[result.taskId];
-                    const effectiveListId = manualListId || selectBrandListBySubniche(result.subniche, availableBrandLists);
-                    return result.subIdExists && effectiveListId && !result.error;
-                  });
-                  return eligibleTasks.length === 0 || postingBrands.size > 0;
-                })()}
-                data-testid="button-post-all-brands"
-              >
-                {postingBrands.size > 0 ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Posting {postingBrands.size}...
-                  </>
-                ) : (
-                  <>
-                    <Send className="h-4 w-4 mr-2" />
-                    Post All Brands ({(() => {
-                      const eligibleTasks = results.filter(result => {
-                        const manualGeoId = manualGeoSelections[result.taskId];
-                        const effectiveGeoId = manualGeoId || result.detectedGeo?.id;
-                        const availableBrandLists = effectiveGeoId ? (allBrandListsQueries.data?.[effectiveGeoId] || []) : [];
-                        const manualListId = manualBrandListSelections[result.taskId];
-                        const effectiveListId = manualListId || selectBrandListBySubniche(result.subniche, availableBrandLists);
-                        return result.subIdExists && effectiveListId && !result.error;
-                      });
-                      return eligibleTasks.length;
-                    })()})
-                  </>
-                )}
-              </Button>
-
-              <Button
-                onClick={handleSaveAndReset}
-                variant="outline"
-                className="ml-auto"
-                data-testid="button-save-reset"
-              >
-                <Save className="h-4 w-4 mr-2" />
-                Save & Reset
-              </Button>
             </div>
           </div>
             </Card>
