@@ -67,6 +67,8 @@ export interface IStorage {
   updateRanking(id: string, ranking: Partial<InsertGeoBrandRanking>): Promise<GeoBrandRanking>;
   deleteRanking(id: string): Promise<void>;
   bulkUpsertRankings(listId: string, rankings: InsertGeoBrandRanking[]): Promise<GeoBrandRanking[]>;
+  bulkUpdatePositions(updates: { id: string; position: number }[]): Promise<void>;
+  bulkUpdateSortOrder(updates: { id: string; sortOrder: number }[]): Promise<void>;
 }
 
 export class DbStorage implements IStorage {
@@ -321,6 +323,39 @@ export class DbStorage implements IStorage {
       // Insert new rankings
       if (rankings.length === 0) return [];
       return await tx.insert(geoBrandRankings).values(rankings).returning();
+    });
+  }
+
+  async bulkUpdatePositions(updates: { id: string; position: number }[]): Promise<void> {
+    // Wrap updates in a transaction for atomicity
+    await db.transaction(async (tx) => {
+      // Step 1: Set all affected positions to NULL to avoid conflicts
+      for (const update of updates) {
+        await tx
+          .update(geoBrandRankings)
+          .set({ position: null })
+          .where(eq(geoBrandRankings.id, update.id));
+      }
+      
+      // Step 2: Update to new positions
+      for (const update of updates) {
+        await tx
+          .update(geoBrandRankings)
+          .set({ position: update.position })
+          .where(eq(geoBrandRankings.id, update.id));
+      }
+    });
+  }
+
+  async bulkUpdateSortOrder(updates: { id: string; sortOrder: number }[]): Promise<void> {
+    // Wrap updates in a transaction for atomicity
+    await db.transaction(async (tx) => {
+      for (const update of updates) {
+        await tx
+          .update(geoBrandRankings)
+          .set({ sortOrder: update.sortOrder })
+          .where(eq(geoBrandRankings.id, update.id));
+      }
     });
   }
 }

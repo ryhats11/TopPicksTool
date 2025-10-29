@@ -1635,13 +1635,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "updates must be an array" });
       }
       
-      // Update each ranking's position
+      // Validate all updates first
       for (const update of updates) {
         if (!update.id || typeof update.position !== 'number') {
           return res.status(400).json({ error: "Each update must have id and position" });
         }
-        await storage.updateRanking(update.id, { position: update.position });
       }
+      
+      // Use transactional bulk update to avoid conflicts
+      await storage.bulkUpdatePositions(updates);
       
       res.json({ success: true, updated: updates.length });
     } catch (error: any) {
@@ -1657,13 +1659,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "updates must be an array" });
       }
       
-      // Update each ranking's sortOrder
+      // Validate all updates first
       for (const update of updates) {
         if (!update.id || typeof update.sortOrder !== 'number') {
           return res.status(400).json({ error: "Each update must have id and sortOrder" });
         }
-        await storage.updateRanking(update.id, { sortOrder: update.sortOrder });
       }
+      
+      // Use transactional bulk update
+      await storage.bulkUpdateSortOrder(updates);
       
       res.json({ success: true, updated: updates.length });
     } catch (error: any) {
