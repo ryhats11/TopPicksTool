@@ -106,7 +106,6 @@ export default function TaskReconciliation() {
   const [creatingSubIds, setCreatingSubIds] = useState<Set<string>>(new Set());
   const [postingBrands, setPostingBrands] = useState<Set<string>>(new Set());
   const [manualBrandSelections, setManualBrandSelections] = useState<Record<string, { position: number | null; brandName: string; brandId: string }>>({});
-  const [manualGeoSelections, setManualGeoSelections] = useState<Record<string, string>>({}); // taskId -> geoId
 
   // Fetch all GEOs to get rankings for each
   const { data: allGeos = [] } = useQuery<Array<{ id: string; code: string; name: string }>>({
@@ -488,44 +487,19 @@ export default function TaskReconciliation() {
                         )}
                       </TableCell>
                       <TableCell data-testid={`cell-geo-${index}`}>
-                        <div className="flex flex-col gap-1">
-                          {result.detectedGeo && (
-                            <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                              <span>Auto:</span>
-                              <Badge variant="outline" className="gap-1 text-xs py-0 h-5">
-                                <Globe className="h-2.5 w-2.5" />
-                                {result.detectedGeo.code}
-                              </Badge>
-                            </div>
-                          )}
-                          {result.unmatchedGeoValue && (
-                            <div className="flex items-center gap-2 text-xs text-amber-600 dark:text-amber-500 mb-1">
-                              <AlertTriangle className="h-3 w-3 flex-shrink-0" />
-                              <span>Add "{result.unmatchedGeoValue}"</span>
-                            </div>
-                          )}
-                          <Select
-                            value={manualGeoSelections[result.taskId] || result.detectedGeo?.id || ""}
-                            onValueChange={(value) => {
-                              setManualGeoSelections(prev => ({
-                                ...prev,
-                                [result.taskId]: value
-                              }));
-                            }}
-                            data-testid={`select-geo-${index}`}
-                          >
-                            <SelectTrigger className="h-8 text-xs">
-                              <SelectValue placeholder="Select GEO for brands" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {allGeos.map((geo) => (
-                                <SelectItem key={geo.id} value={geo.id}>
-                                  {geo.code} - {geo.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
+                        {result.detectedGeo ? (
+                          <Badge variant="outline" className="gap-1">
+                            <Globe className="h-3 w-3" />
+                            {result.detectedGeo.code}
+                          </Badge>
+                        ) : result.unmatchedGeoValue ? (
+                          <div className="flex items-center gap-2 text-xs text-amber-600 dark:text-amber-500">
+                            <AlertTriangle className="h-3 w-3 flex-shrink-0" />
+                            <span>Add "{result.unmatchedGeoValue}" to Brand Rankings</span>
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground text-sm">Not set</span>
+                        )}
                       </TableCell>
                       <TableCell data-testid={`cell-website-${index}`}>
                         {result.error ? (
@@ -545,20 +519,12 @@ export default function TaskReconciliation() {
                           const autoMatch = result.brandMatch;
                           // Check if there's a manual selection
                           const manualMatch = manualBrandSelections[result.taskId];
-                          const manualGeoId = manualGeoSelections[result.taskId];
-                          
-                          // Determine which GEO to use for brand matching
-                          const effectiveGeoId = manualGeoId || result.detectedGeo?.id;
-                          const effectiveGeo = manualGeoId 
-                            ? allGeos.find(g => g.id === manualGeoId) 
-                            : result.detectedGeo;
-                          
                           // Get the final match to display (manual overrides auto)
                           let displayMatch = manualMatch || autoMatch;
 
-                          // If no match yet and we have an effective GEO, try to get #1 brand from that GEO
-                          if (!displayMatch && effectiveGeoId) {
-                            const allBrands = getAllBrandsForGeo(effectiveGeoId);
+                          // If no match yet, try to get #1 brand from detected GEO
+                          if (!displayMatch && result.detectedGeo) {
+                            const allBrands = getAllBrandsForGeo(result.detectedGeo.id);
                             const topBrand = allBrands.find(b => b.position === 1);
                             if (topBrand) {
                               displayMatch = topBrand;
@@ -567,6 +533,7 @@ export default function TaskReconciliation() {
 
                           // If we have a match, display it as a badge
                           if (displayMatch) {
+                            const displayGeo = result.detectedGeo;
                             const positionText = displayMatch.position !== null && displayMatch.position !== undefined 
                               ? `#${displayMatch.position} ` 
                               : '';
@@ -575,16 +542,16 @@ export default function TaskReconciliation() {
                               <div className="flex items-center gap-2">
                                 <Badge 
                                   variant="default" 
-                                  className={effectiveGeo ? "gap-1 cursor-pointer hover-elevate active-elevate-2" : "gap-1"}
-                                  onClick={effectiveGeo ? () => handleBrandBadgeClick(effectiveGeo) : undefined}
-                                  onKeyDown={effectiveGeo ? (e) => {
+                                  className={displayGeo ? "gap-1 cursor-pointer hover-elevate active-elevate-2" : "gap-1"}
+                                  onClick={displayGeo ? () => handleBrandBadgeClick(displayGeo) : undefined}
+                                  onKeyDown={displayGeo ? (e) => {
                                     if (e.key === 'Enter' || e.key === ' ') {
                                       e.preventDefault();
-                                      handleBrandBadgeClick(effectiveGeo);
+                                      handleBrandBadgeClick(displayGeo);
                                     }
                                   } : undefined}
-                                  role={effectiveGeo ? "button" : undefined}
-                                  tabIndex={effectiveGeo ? 0 : undefined}
+                                  role={displayGeo ? "button" : undefined}
+                                  tabIndex={displayGeo ? 0 : undefined}
                                   data-testid={`badge-brand-match-${index}`}
                                 >
                                   {positionText}{displayMatch.brandName}
