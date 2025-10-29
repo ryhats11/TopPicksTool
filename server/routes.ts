@@ -1345,6 +1345,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
               if (response.ok) {
                 const taskData = await response.json();
                 
+                // Log task data for debugging
+                console.log(`[ClickUp Task ${taskId}] Name: ${taskData.name}`);
+                console.log(`[ClickUp Task ${taskId}] Custom Fields:`, JSON.stringify(taskData.custom_fields, null, 2));
+                
                 // Extract custom fields
                 let taskGeoId: string | null = null;
                 let publisherValue: string | null = null;
@@ -1384,6 +1388,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
                     publisherValue = typeof publisherField.value === 'string' 
                       ? publisherField.value 
                       : publisherField.value.name || publisherField.value.value || null;
+                    
+                    console.log(`[ClickUp Task ${taskId}] Publisher extracted: "${publisherValue}"`);
+                  } else {
+                    console.log(`[ClickUp Task ${taskId}] No *Publisher field found or value is empty`);
                   }
                 }
                 
