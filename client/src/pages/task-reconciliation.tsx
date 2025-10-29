@@ -554,6 +554,29 @@ export default function TaskReconciliation() {
 
                           return (
                             <div className="flex items-center gap-2">
+                              {/* GEO selector for brand list */}
+                              <Select
+                                value={manualGeoId || result.detectedGeo?.id || ""}
+                                onValueChange={(value) => {
+                                  setManualGeoSelections(prev => ({
+                                    ...prev,
+                                    [result.taskId]: value
+                                  }));
+                                }}
+                                data-testid={`select-brand-geo-${index}`}
+                              >
+                                <SelectTrigger className="h-8 text-xs w-[140px]">
+                                  <SelectValue placeholder="Select GEO" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {allGeos.map((geo) => (
+                                    <SelectItem key={geo.id} value={geo.id}>
+                                      {geo.code} - {geo.name}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              
                               {/* Brand badge display */}
                               {displayMatch ? (
                                 <Badge 
@@ -577,29 +600,6 @@ export default function TaskReconciliation() {
                               ) : (
                                 <span className="text-muted-foreground text-sm">No match</span>
                               )}
-                              
-                              {/* GEO selector for brand list */}
-                              <Select
-                                value={manualGeoId || result.detectedGeo?.id || ""}
-                                onValueChange={(value) => {
-                                  setManualGeoSelections(prev => ({
-                                    ...prev,
-                                    [result.taskId]: value
-                                  }));
-                                }}
-                                data-testid={`select-brand-geo-${index}`}
-                              >
-                                <SelectTrigger className="h-8 text-xs w-[140px]">
-                                  <SelectValue placeholder="Select GEO" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {allGeos.map((geo) => (
-                                    <SelectItem key={geo.id} value={geo.id}>
-                                      {geo.code} - {geo.name}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
                             </div>
                           );
                         })()}
