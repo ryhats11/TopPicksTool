@@ -1388,21 +1388,324 @@ export async function registerRoutes(app: Express): Promise<Server> {
       '.AU': 'AU',
       'AU-AUSTRALIA': 'AU',
       
-      // Germany
+      // Europe
       'DE': 'DE',
       'DEU': 'DE',
       'GERMANY': 'DE',
       '.DE': 'DE',
-      'DE-GERMANY': 'DE',
       
-      // France
       'FR': 'FR',
       'FRA': 'FR',
       'FRANCE': 'FR',
       '.FR': 'FR',
-      'FR-FRANCE': 'FR',
       
-      // Add more mappings as needed
+      'ES': 'ES',
+      'ESP': 'ES',
+      'SPAIN': 'ES',
+      '.ES': 'ES',
+      
+      'IT': 'IT',
+      'ITA': 'IT',
+      'ITALY': 'IT',
+      '.IT': 'IT',
+      
+      'SE': 'SE',
+      'SWE': 'SE',
+      'SWEDEN': 'SE',
+      '.SE': 'SE',
+      
+      'NO': 'NO',
+      'NOR': 'NO',
+      'NORWAY': 'NO',
+      '.NO': 'NO',
+      
+      'DK': 'DK',
+      'DNK': 'DK',
+      'DENMARK': 'DK',
+      '.DK': 'DK',
+      
+      'FI': 'FI',
+      'FIN': 'FI',
+      'FINLAND': 'FI',
+      '.FI': 'FI',
+      
+      'NL': 'NL',
+      'NLD': 'NL',
+      'NETHERLANDS': 'NL',
+      '.NL': 'NL',
+      
+      'BE': 'BE',
+      'BEL': 'BE',
+      'BELGIUM': 'BE',
+      '.BE': 'BE',
+      
+      'CH': 'CH',
+      'CHE': 'CH',
+      'SWITZERLAND': 'CH',
+      '.CH': 'CH',
+      
+      'AT': 'AT',
+      'AUT': 'AT',
+      'AUSTRIA': 'AT',
+      '.AT': 'AT',
+      
+      'IE': 'IE',
+      'IRL': 'IE',
+      'IRELAND': 'IE',
+      '.IE': 'IE',
+      
+      'PT': 'PT',
+      'PRT': 'PT',
+      'PORTUGAL': 'PT',
+      '.PT': 'PT',
+      
+      'PL': 'PL',
+      'POL': 'PL',
+      'POLAND': 'PL',
+      '.PL': 'PL',
+      
+      'CZ': 'CZ',
+      'CZE': 'CZ',
+      'CZECHREPUBLIC': 'CZ',
+      '.CZ': 'CZ',
+      
+      'SK': 'SK',
+      'SVK': 'SK',
+      'SLOVAKIA': 'SK',
+      '.SK': 'SK',
+      
+      'HU': 'HU',
+      'HUN': 'HU',
+      'HUNGARY': 'HU',
+      '.HU': 'HU',
+      
+      'RO': 'RO',
+      'ROU': 'RO',
+      'ROMANIA': 'RO',
+      '.RO': 'RO',
+      
+      'BG': 'BG',
+      'BGR': 'BG',
+      'BULGARIA': 'BG',
+      '.BG': 'BG',
+      
+      'GR': 'GR',
+      'GRC': 'GR',
+      'GREECE': 'GR',
+      '.GR': 'GR',
+      
+      'HR': 'HR',
+      'HRV': 'HR',
+      'CROATIA': 'HR',
+      '.HR': 'HR',
+      
+      'SI': 'SI',
+      'SVN': 'SI',
+      'SLOVENIA': 'SI',
+      '.SI': 'SI',
+      
+      'RS': 'RS',
+      'SRB': 'RS',
+      'SERBIA': 'RS',
+      '.RS': 'RS',
+      
+      'UA': 'UA',
+      'UKR': 'UA',
+      'UKRAINE': 'UA',
+      '.UA': 'UA',
+      
+      'RU': 'RU',
+      'RUS': 'RU',
+      'RUSSIA': 'RU',
+      '.RU': 'RU',
+      
+      'TR': 'TR',
+      'TUR': 'TR',
+      'TURKEY': 'TR',
+      '.TR': 'TR',
+      
+      'IS': 'IS',
+      'ISL': 'IS',
+      'ICELAND': 'IS',
+      '.IS': 'IS',
+      
+      'EE': 'EE',
+      'EST': 'EE',
+      'ESTONIA': 'EE',
+      '.EE': 'EE',
+      
+      'LV': 'LV',
+      'LVA': 'LV',
+      'LATVIA': 'LV',
+      '.LV': 'LV',
+      
+      'LT': 'LT',
+      'LTU': 'LT',
+      'LITHUANIA': 'LT',
+      '.LT': 'LT',
+      
+      // Americas
+      'MX': 'MX',
+      'MEX': 'MX',
+      'MEXICO': 'MX',
+      '.MX': 'MX',
+      
+      'PR': 'PR',
+      'PRI': 'PR',
+      'PUERTORICO': 'PR',
+      '.PR': 'PR',
+      
+      'JM': 'JM',
+      'JAM': 'JM',
+      'JAMAICA': 'JM',
+      '.JM': 'JM',
+      
+      'BS': 'BS',
+      'BHS': 'BS',
+      'BAHAMAS': 'BS',
+      '.BS': 'BS',
+      
+      'TT': 'TT',
+      'TTO': 'TT',
+      'TRINIDADANDTOBAGO': 'TT',
+      '.TT': 'TT',
+      
+      // South America
+      'BR': 'BR',
+      'BRA': 'BR',
+      'BRAZIL': 'BR',
+      '.BR': 'BR',
+      
+      'AR': 'AR',
+      'ARG': 'AR',
+      'ARGENTINA': 'AR',
+      '.AR': 'AR',
+      
+      'CL': 'CL',
+      'CHL': 'CL',
+      'CHILE': 'CL',
+      '.CL': 'CL',
+      
+      'CO': 'CO',
+      'COL': 'CO',
+      'COLOMBIA': 'CO',
+      '.CO': 'CO',
+      
+      'PE': 'PE',
+      'PER': 'PE',
+      'PERU': 'PE',
+      '.PE': 'PE',
+      
+      'UY': 'UY',
+      'URY': 'UY',
+      'URUGUAY': 'UY',
+      '.UY': 'UY',
+      
+      'PY': 'PY',
+      'PRY': 'PY',
+      'PARAGUAY': 'PY',
+      '.PY': 'PY',
+      
+      'EC': 'EC',
+      'ECU': 'EC',
+      'ECUADOR': 'EC',
+      '.EC': 'EC',
+      
+      'VE': 'VE',
+      'VEN': 'VE',
+      'VENEZUELA': 'VE',
+      '.VE': 'VE',
+      
+      'BO': 'BO',
+      'BOL': 'BO',
+      'BOLIVIA': 'BO',
+      '.BO': 'BO',
+      
+      // Asia
+      'CN': 'CN',
+      'CHN': 'CN',
+      'CHINA': 'CN',
+      '.CN': 'CN',
+      
+      'JP': 'JP',
+      'JPN': 'JP',
+      'JAPAN': 'JP',
+      '.JP': 'JP',
+      
+      'KR': 'KR',
+      'KOR': 'KR',
+      'SOUTHKOREA': 'KR',
+      '.KR': 'KR',
+      
+      'IN': 'IN',
+      'IND': 'IN',
+      'INDIA': 'IN',
+      '.IN': 'IN',
+      
+      'ID': 'ID',
+      'IDN': 'ID',
+      'INDONESIA': 'ID',
+      '.ID': 'ID',
+      
+      'MY': 'MY',
+      'MYS': 'MY',
+      'MALAYSIA': 'MY',
+      '.MY': 'MY',
+      
+      'PH': 'PH',
+      'PHL': 'PH',
+      'PHILIPPINES': 'PH',
+      '.PH': 'PH',
+      
+      'TH': 'TH',
+      'THA': 'TH',
+      'THAILAND': 'TH',
+      '.TH': 'TH',
+      
+      'VN': 'VN',
+      'VNM': 'VN',
+      'VIETNAM': 'VN',
+      '.VN': 'VN',
+      
+      'SG': 'SG',
+      'SGP': 'SG',
+      'SINGAPORE': 'SG',
+      '.SG': 'SG',
+      
+      'HK': 'HK',
+      'HKG': 'HK',
+      'HONGKONG': 'HK',
+      '.HK': 'HK',
+      
+      'TW': 'TW',
+      'TWN': 'TW',
+      'TAIWAN': 'TW',
+      '.TW': 'TW',
+      
+      'PK': 'PK',
+      'PAK': 'PK',
+      'PAKISTAN': 'PK',
+      '.PK': 'PK',
+      
+      'BD': 'BD',
+      'BGD': 'BD',
+      'BANGLADESH': 'BD',
+      '.BD': 'BD',
+      
+      'LK': 'LK',
+      'LKA': 'LK',
+      'SRILANKA': 'LK',
+      '.LK': 'LK',
+      
+      'NP': 'NP',
+      'NPL': 'NP',
+      'NEPAL': 'NP',
+      '.NP': 'NP',
+      
+      'KZ': 'KZ',
+      'KAZ': 'KZ',
+      'KAZAKHSTAN': 'KZ',
+      '.KZ': 'KZ',
     };
     
     // Step 1: Normalize the raw value
