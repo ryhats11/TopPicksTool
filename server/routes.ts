@@ -1284,6 +1284,86 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Helper: Normalize GEO value from ClickUp dropdown to database code
+  const normalizeGeoValue = (rawValue: string): string | null => {
+    if (!rawValue) return null;
+    
+    // GEO alias map: maps various forms to canonical database codes
+    const geoAliasMap: Record<string, string> = {
+      // United States
+      'US': 'USA',
+      'USA': 'USA',
+      'UNITEDSTATES': 'USA',
+      '.US': 'USA',
+      'US-UNITEDSTATES': 'USA',
+      
+      // United Kingdom
+      'UK': 'UK',
+      'GB': 'UK',
+      'UNITEDKINGDOM': 'UK',
+      '.UK': 'UK',
+      'UK-UNITEDKINGDOM': 'UK',
+      
+      // Canada
+      'CA': 'CA',
+      'CAN': 'CA',
+      'CANADA': 'CA',
+      '.CA': 'CA',
+      'CA-CANADA': 'CA',
+      
+      // Australia
+      'AU': 'AU',
+      'AUS': 'AU',
+      'AUSTRALIA': 'AU',
+      '.AU': 'AU',
+      'AU-AUSTRALIA': 'AU',
+      
+      // Germany
+      'DE': 'DE',
+      'DEU': 'DE',
+      'GERMANY': 'DE',
+      '.DE': 'DE',
+      'DE-GERMANY': 'DE',
+      
+      // France
+      'FR': 'FR',
+      'FRA': 'FR',
+      'FRANCE': 'FR',
+      '.FR': 'FR',
+      'FR-FRANCE': 'FR',
+      
+      // Add more mappings as needed
+    };
+    
+    // Step 1: Normalize the raw value
+    let normalized = rawValue
+      .trim()
+      .toUpperCase()
+      .replace(/[^\w\s-]/g, '') // Remove punctuation except hyphens
+      .replace(/\s+/g, '');      // Remove all whitespace
+    
+    // Step 2: Try exact match first
+    if (geoAliasMap[normalized]) {
+      return geoAliasMap[normalized];
+    }
+    
+    // Step 3: Try splitting on common delimiters
+    const parts = rawValue.split(/[-|]/).map(p => 
+      p.trim()
+        .toUpperCase()
+        .replace(/[^\w]/g, '')
+    );
+    
+    for (const part of parts) {
+      if (geoAliasMap[part]) {
+        return geoAliasMap[part];
+      }
+    }
+    
+    // Step 4: Return normalized value for direct lookup
+    return normalized;
+  };
+
   // Task Reconciliation: Cross-reference ClickUp tasks with featured brands and Sub-ID tracker
   app.post("/api/reconcile-tasks", async (req, res) => {
     try {
@@ -1387,16 +1467,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
                       }
                       
                       if (geoValue) {
-                        const geoCode = geoValue.toUpperCase();
-                        const matchedGeo = geosByCode.get(geoCode);
-                        if (matchedGeo) {
-                          taskGeoId = matchedGeo.id;
-                          result.detectedGeo = {
-                            code: matchedGeo.code,
-                            name: matchedGeo.name,
-                          };
-                        } else {
-                          console.log(`[ClickUp Task ${taskId}] Could not match GEO "${geoValue}" to database`);
+                        // Normalize the GEO value to handle formats like ".us - United States"
+                        const normalizedCode = normalizeGeoValue(geoValue);
+                        console.log(`[ClickUp Task ${taskId}] Normalized GEO "${geoValue}" to "${normalizedCode}"`);
+                        
+                        if (normalizedCode) {
+                          const matchedGeo = geosByCode.get(normalizedCode);
+                          if (matchedGeo) {
+                            taskGeoId = matchedGeo.id;
+                            result.detectedGeo = {
+                              code: matchedGeo.code,
+                              name: matchedGeo.name,
+                            };
+                            console.log(`[ClickUp Task ${taskId}] Matched to database GEO: ${matchedGeo.code}`);
+                          } else {
+                            console.log(`[ClickUp Task ${taskId}] Could not match normalized GEO "${normalizedCode}" to database. Available codes:`, Array.from(geosByCode.keys()));
+                          }
                         }
                       }
                     } else {
