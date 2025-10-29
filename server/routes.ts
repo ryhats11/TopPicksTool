@@ -1224,8 +1224,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
+      // Look up Sub-ID for this task
+      const allSubIds = await storage.getAllSubIds();
+      const subId = allSubIds.find((s: any) => s.clickupTaskId === taskId);
+
       // Build the brand list comment
       let commentText = `🥇 **Top Brands for ${geo.code}**\n\n`;
+      
+      // Add Sub-ID if it exists
+      if (subId) {
+        commentText += `**Sub-ID:** \`${subId.value}\`\n\n`;
+      }
       
       featuredRankings.forEach((ranking: any) => {
         const brand = brandsById.get(ranking.brandId);
