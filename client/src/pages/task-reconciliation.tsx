@@ -496,7 +496,7 @@ export default function TaskReconciliation() {
       <PageNav />
       
       <main className="flex-1 overflow-auto">
-        <div className="container mx-auto p-6 max-w-[1380px]">
+        <div className="container mx-auto p-6 max-w-[1518px]">
           <div className="mb-6">
             <h1 className="text-3xl font-bold mb-2">Top Picks Tool</h1>
             <p className="text-muted-foreground">
