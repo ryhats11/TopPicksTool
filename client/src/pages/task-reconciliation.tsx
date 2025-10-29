@@ -27,6 +27,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import type { GeoBrandRanking, Brand } from "@shared/schema";
 
 interface ReconciliationResult {
   taskId: string;
@@ -46,17 +47,12 @@ interface ReconciliationResult {
   error?: string;
 }
 
-interface BrandRanking {
-  id: string;
-  position: number | null;
-  brandId: string;
-  brandName: string;
-  defaultUrl: string;
-  affiliateLink: string | null;
+interface RankingWithBrand extends GeoBrandRanking {
+  brand?: Brand;
 }
 
 interface SortableBrandItemProps {
-  brand: BrandRanking;
+  brand: RankingWithBrand;
   index: number;
 }
 
@@ -88,7 +84,7 @@ function SortableBrandItem({ brand, index }: SortableBrandItemProps) {
         {index + 1}
       </div>
       <div className="flex-1">
-        <div className="font-medium">{brand.brandName}</div>
+        <div className="font-medium">{brand.brand?.name || "Unknown Brand"}</div>
         {brand.affiliateLink && (
           <div className="text-xs text-muted-foreground truncate">{brand.affiliateLink}</div>
         )}
@@ -103,12 +99,17 @@ export default function TaskReconciliation() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [results, setResults] = useState<ReconciliationResult[]>([]);
   const [selectedGeoForBrands, setSelectedGeoForBrands] = useState<{ id: string; code: string; name: string } | null>(null);
-  const [localBrands, setLocalBrands] = useState<BrandRanking[]>([]);
+  const [localBrands, setLocalBrands] = useState<RankingWithBrand[]>([]);
 
-  // Fetch brands for the selected GEO
-  const { data: brandsData, isLoading: brandsLoading } = useQuery<{ rankings: BrandRanking[] }>({
+  // Fetch rankings for the selected GEO
+  const { data: rankings = [], isLoading: rankingsLoading } = useQuery<GeoBrandRanking[]>({
     queryKey: ["/api/geos", selectedGeoForBrands?.id, "rankings"],
     enabled: !!selectedGeoForBrands?.id,
+  });
+
+  // Fetch all brands
+  const { data: brands = [], isLoading: brandsLoading } = useQuery<Brand[]>({
+    queryKey: ["/api/brands"],
   });
 
   // Setup drag and drop sensors
@@ -135,12 +136,28 @@ export default function TaskReconciliation() {
     setSelectedGeoForBrands(geo);
   };
 
-  // When brands data changes or dialog opens, initialize local brands
+  // When rankings or brands data changes or dialog opens, initialize local brands
   useEffect(() => {
-    if (brandsData?.rankings && selectedGeoForBrands) {
-      setLocalBrands([...brandsData.rankings]);
+    if (!selectedGeoForBrands) {
+      setLocalBrands([]);
+      return;
     }
-  }, [brandsData, selectedGeoForBrands]);
+
+    // If we have rankings and brands data, combine them
+    if (rankings.length > 0 && brands.length > 0) {
+      const rankingsWithBrands: RankingWithBrand[] = rankings
+        .map((ranking) => ({
+          ...ranking,
+          brand: brands.find((b) => b.id === ranking.brandId),
+        }))
+        .sort((a, b) => (a.position || 999) - (b.position || 999));
+      
+      setLocalBrands(rankingsWithBrands);
+    } else {
+      // Clear local brands if no rankings or brands data
+      setLocalBrands([]);
+    }
+  }, [rankings, brands, selectedGeoForBrands]);
 
   // Helper function to clean website name - removes *pm- prefix
   const cleanWebsiteName = (name: string | null): string | null => {
@@ -399,7 +416,7 @@ export default function TaskReconciliation() {
           </DialogHeader>
           
           <div className="flex-1 overflow-y-auto pr-2">
-            {brandsLoading ? (
+            {(rankingsLoading || brandsLoading) ? (
               <div className="flex items-center justify-center py-12">
                 <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
               </div>
