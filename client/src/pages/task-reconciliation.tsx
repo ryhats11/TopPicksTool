@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -136,28 +136,27 @@ export default function TaskReconciliation() {
     setSelectedGeoForBrands(geo);
   };
 
-  // When rankings or brands data changes or dialog opens, initialize local brands
+  // When dialog opens or GEO changes, initialize local brands
   useEffect(() => {
     if (!selectedGeoForBrands) {
-      setLocalBrands([]);
       return;
     }
 
-    // If we have rankings and brands data, combine them
-    if (rankings.length > 0 && brands.length > 0) {
-      const rankingsWithBrands: RankingWithBrand[] = rankings
-        .map((ranking) => ({
-          ...ranking,
-          brand: brands.find((b) => b.id === ranking.brandId),
-        }))
-        .sort((a, b) => (a.position || 999) - (b.position || 999));
-      
-      setLocalBrands(rankingsWithBrands);
-    } else {
-      // Clear local brands if no rankings or brands data
-      setLocalBrands([]);
+    // Wait for both queries to finish loading
+    if (rankingsLoading || brandsLoading) {
+      return;
     }
-  }, [rankings, brands, selectedGeoForBrands]);
+
+    // Combine rankings with brands
+    const rankingsWithBrands: RankingWithBrand[] = rankings
+      .map((ranking) => ({
+        ...ranking,
+        brand: brands.find((b) => b.id === ranking.brandId),
+      }))
+      .sort((a, b) => (a.position || 999) - (b.position || 999));
+    
+    setLocalBrands(rankingsWithBrands);
+  }, [selectedGeoForBrands?.id, rankingsLoading, brandsLoading]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Helper function to clean website name - removes *pm- prefix
   const cleanWebsiteName = (name: string | null): string | null => {
