@@ -1379,12 +1379,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.post("/api/geos", async (req, res) => {
+    let geo: any = null;
     try {
       const data = insertGeoSchema.parse(req.body);
-      const geo = await storage.createGeo(data);
+      geo = await storage.createGeo(data);
+      
+      // Automatically create default brand lists: Casino, Sports, Crypto
+      const defaultLists = ['Casino', 'Sports', 'Crypto'];
+      for (let i = 0; i < defaultLists.length; i++) {
+        await storage.createBrandList({
+          geoId: geo.id,
+          name: defaultLists[i],
+          sortOrder: i,
+        });
+      }
+      
       res.json(geo);
     } catch (error: any) {
       console.error("Error creating GEO:", error);
+      
+      // If GEO was created but list creation failed, roll back
+      if (geo?.id) {
+        try {
+          await storage.deleteGeo(geo.id);
+          console.log("Rolled back GEO creation due to list creation failure");
+        } catch (rollbackError) {
+          console.error("Failed to roll back GEO:", rollbackError);
+        }
+        // Return 500 for server-side failures after validation
+        return res.status(500).json({ error: error.message || "Failed to create default brand lists" });
+      }
+      
+      // Return 400 for validation errors
       res.status(400).json({ error: error.message || "Invalid GEO data" });
     }
   });
