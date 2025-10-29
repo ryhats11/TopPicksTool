@@ -39,14 +39,18 @@ Preferred communication style: Simple, everyday language.
 - Custom hooks for reusable logic (mobile detection, toast notifications)
 
 **Key UI Features**
+- Shared navigation header (PageNav component) providing consistent access to all three modules
+  - Active page visual highlighting using variant-based button states
+  - Sticky positioning with backdrop blur effect
+  - Optional sidebar toggle for pages with sidebars
+  - Optional contextual title display (e.g., selected GEO name)
+  - Theme toggle always accessible on the right side
 - Collapsible sidebar navigation for website and GEO management
 - Multi-dialog system for adding websites, GEOs, brands, and bulk importing Sub-IDs
 - Real-time duplicate detection across all Sub-IDs
 - CSV export functionality for Sub-ID data
 - Brand rankings editor with position management (1-10) and affiliate link tracking
-- Theme toggle supporting light and dark modes
 - Responsive design with mobile-first breakpoints
-- Navigation between Sub-ID Tracker and Brand Rankings modules
 
 ### Backend Architecture
 
