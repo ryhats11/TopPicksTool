@@ -1228,6 +1228,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const allSubIds = await storage.getAllSubIds();
       const subId = allSubIds.find((s: any) => s.clickupTaskId === taskId);
 
+      // Helper function to decode HTML entities in URLs
+      const decodeHtmlEntities = (text: string): string => {
+        return text
+          .replace(/&amp;/g, '&')
+          .replace(/&lt;/g, '<')
+          .replace(/&gt;/g, '>')
+          .replace(/&quot;/g, '"')
+          .replace(/&#39;/g, "'");
+      };
+
+      // Helper function to replace tracking parameter in URL
+      const replaceTrackingParam = (url: string, oldTaskId: string, newValue: string): string => {
+        url = decodeHtmlEntities(url);
+        
+        const trackingParams = [
+          'payload', 'subid', 'sub_id', 'clickid', 'click_id', 'clickID',
+          'campaign', 'campaign_id', 'affid', 'aff_id', 'affiliate_id',
+          'tracking', 'tracker', 'ref', 'reference', 'source', 'source_id',
+          'utm_campaign', 'utm_source', 'utm_medium', 'utm_term', 'utm_content',
+          'pid', 'aid', 'sid', 'cid', 'tid', 'btag', 'tag', 'var',
+          'raw', 'nci', 'nkw', 'lpid', 'bid', 'b', 'a', 's', 'c', 'dyn_id',
+          'partner_id', 'offer_id', 'creative_id', 'ad_id', 'aff_click_id',
+          'transaction_id', 'payout', 'status', 'currency', 'event_type',
+          'subid1', 'subid2', 'subid3', 'subid4', 'subid5',
+          'aff_sub', 'aff_sub2', 'aff_sub3', 'aff_sub4', 'aff_sub5',
+          'geo', 'country', 'lang', 'locale', 'device', 'os', 'browser', 'platform',
+          'page_id', 'article_id', 'placement_id', 'cta_pos', 'test_variant', 'a_b_group',
+          'traffic_source', 'ref_site', 'session_id', 'ref_url', 'campaign_hash',
+          'content_id', 'site_id', 'user_id', 'timestamp', 'uuid',
+          'adv1', 'adv2', 'a_aid', 'data1', 'data2', 'data3',
+          'anid', 'afp', 'visitorId', 'zone_id', 'smc1', 'sub1', 'p1',
+          'tdpeh', 'visit_id', 'pm_dv', 'dynamic', 'var1', 'zoneid'
+        ];
+
+        try {
+          const urlObj = new URL(url);
+          
+          for (const param of trackingParams) {
+            const value = urlObj.searchParams.get(param);
+            if (value === oldTaskId) {
+              urlObj.searchParams.set(param, newValue);
+              return urlObj.toString();
+            }
+          }
+        } catch (e) {
+          // If URL parsing fails, return original
+        }
+        
+        return url;
+      };
+
       // Build the brand list comment
       let commentText = `🥇 **Top Brands for ${geo.code}**\n\n`;
       
@@ -1239,8 +1290,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       featuredRankings.forEach((ranking: any) => {
         const brand = brandsById.get(ranking.brandId);
         if (brand && ranking.affiliateLink) {
+          let affiliateLink = ranking.affiliateLink;
+          
+          // If we have a Sub-ID, replace the task ID in the affiliate link
+          if (subId) {
+            affiliateLink = replaceTrackingParam(affiliateLink, taskId, subId.value);
+          }
+          
           commentText += `${ranking.position}. **${brand.name}**\n`;
-          commentText += `   ${ranking.affiliateLink}\n\n`;
+          commentText += `   ${affiliateLink}\n\n`;
         }
       });
 
