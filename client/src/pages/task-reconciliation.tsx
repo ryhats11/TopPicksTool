@@ -163,8 +163,8 @@ export default function TaskReconciliation() {
   const cleanWebsiteName = (name: string | null): string | null => {
     if (!name) return null;
     
-    // Remove *pm- prefix (case-insensitive)
-    const cleaned = name.replace(/^\*pm-/i, '');
+    // Remove *pm- or *pm - prefix (case-insensitive, with optional space)
+    const cleaned = name.replace(/^\*pm\s*-\s*/i, '');
     return cleaned;
   };
 
