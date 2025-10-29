@@ -561,7 +561,8 @@ export default function TaskReconciliation() {
                     <TableHead>Brand Match</TableHead>
                     <TableHead>Sub-ID Status</TableHead>
                     <TableHead>Sub-ID Value</TableHead>
-                    <TableHead>Actions</TableHead>
+                    <TableHead>Create Sub-ID</TableHead>
+                    <TableHead>Post Brands</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -738,72 +739,71 @@ export default function TaskReconciliation() {
                       <TableCell className="font-mono text-sm" data-testid={`cell-subid-value-${index}`}>
                         {result.subIdValue || <span className="text-muted-foreground">-</span>}
                       </TableCell>
-                      <TableCell data-testid={`cell-actions-${index}`}>
-                        <div className="flex flex-col gap-2">
-                          {/* Create Sub-ID Button */}
-                          {!result.subIdExists && !result.error && !result.unmatchedGeoValue && (
-                            result.websiteId ? (
+                      <TableCell data-testid={`cell-create-subid-${index}`}>
+                        {/* Create Sub-ID Button */}
+                        {!result.subIdExists && !result.error && !result.unmatchedGeoValue && (
+                          result.websiteId ? (
+                            <Button
+                              size="sm"
+                              onClick={() => handleCreateSubId(result.taskId, result.websiteId!)}
+                              disabled={creatingSubIds.has(result.taskId)}
+                              data-testid={`button-create-subid-${index}`}
+                            >
+                              {creatingSubIds.has(result.taskId) ? (
+                                <>
+                                  <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                                  Creating...
+                                </>
+                              ) : (
+                                <>
+                                  <Plus className="h-3 w-3 mr-1" />
+                                  Create Sub-ID
+                                </>
+                              )}
+                            </Button>
+                          ) : result.websiteName ? (
+                            <div className="flex items-center gap-2 text-xs text-amber-600 dark:text-amber-500">
+                              <AlertTriangle className="h-3 w-3 flex-shrink-0" />
+                              <span>Add "{cleanWebsiteName(result.websiteName)}" to Sub-ID Tracker first</span>
+                            </div>
+                          ) : null
+                        )}
+                      </TableCell>
+                      <TableCell data-testid={`cell-post-brands-${index}`}>
+                        {/* Post Brands Button */}
+                        {(() => {
+                          const manualGeoId = manualGeoSelections[result.taskId];
+                          const manualListId = manualBrandListSelections[result.taskId];
+                          const effectiveGeoId = manualGeoId || result.detectedGeo?.id;
+                          
+                          // Get available brand lists for the effective GEO
+                          const availableBrandLists = effectiveGeoId ? (allBrandListsQueries.data?.[effectiveGeoId] || []) : [];
+                          
+                          // Determine which brand list to use
+                          const effectiveListId = manualListId || (availableBrandLists.length > 0 ? availableBrandLists[0]?.id : null);
+                          
+                          if (effectiveListId && !result.error) {
+                            return (
                               <Button
                                 size="sm"
-                                onClick={() => handleCreateSubId(result.taskId, result.websiteId!)}
-                                disabled={creatingSubIds.has(result.taskId)}
-                                data-testid={`button-create-subid-${index}`}
+                                variant="secondary"
+                                onClick={() => handlePostBrands(result.taskId, effectiveListId)}
+                                disabled={postingBrands.has(result.taskId)}
+                                data-testid={`button-post-brands-${index}`}
                               >
-                                {creatingSubIds.has(result.taskId) ? (
+                                {postingBrands.has(result.taskId) ? (
                                   <>
                                     <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                                    Creating...
+                                    Posting...
                                   </>
                                 ) : (
-                                  <>
-                                    <Plus className="h-3 w-3 mr-1" />
-                                    Create Sub-ID
-                                  </>
+                                  "Post Brands"
                                 )}
                               </Button>
-                            ) : result.websiteName ? (
-                              <div className="flex items-center gap-2 text-xs text-amber-600 dark:text-amber-500">
-                                <AlertTriangle className="h-3 w-3 flex-shrink-0" />
-                                <span>Add "{cleanWebsiteName(result.websiteName)}" to Sub-ID Tracker first</span>
-                              </div>
-                            ) : null
-                          )}
-                          
-                          {/* Post Brands Button */}
-                          {(() => {
-                            const manualGeoId = manualGeoSelections[result.taskId];
-                            const manualListId = manualBrandListSelections[result.taskId];
-                            const effectiveGeoId = manualGeoId || result.detectedGeo?.id;
-                            
-                            // Get available brand lists for the effective GEO
-                            const availableBrandLists = effectiveGeoId ? (allBrandListsQueries.data?.[effectiveGeoId] || []) : [];
-                            
-                            // Determine which brand list to use
-                            const effectiveListId = manualListId || (availableBrandLists.length > 0 ? availableBrandLists[0]?.id : null);
-                            
-                            if (effectiveListId && !result.error) {
-                              return (
-                                <Button
-                                  size="sm"
-                                  variant="secondary"
-                                  onClick={() => handlePostBrands(result.taskId, effectiveListId)}
-                                  disabled={postingBrands.has(result.taskId)}
-                                  data-testid={`button-post-brands-${index}`}
-                                >
-                                  {postingBrands.has(result.taskId) ? (
-                                    <>
-                                      <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                                      Posting...
-                                    </>
-                                  ) : (
-                                    "Post Brands"
-                                  )}
-                                </Button>
-                              );
-                            }
-                            return null;
-                          })()}
-                        </div>
+                            );
+                          }
+                          return null;
+                        })()}
                       </TableCell>
                     </TableRow>
                   ))}
