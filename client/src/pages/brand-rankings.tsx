@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { Plus, Edit2, Trash2, Save, X, GripVertical, ArrowDown, ArrowUp } from "lucide-react";
+import { Plus, Edit2, Trash2, Save, X, GripVertical, ArrowDown, ArrowUp, List } from "lucide-react";
 import {
   DndContext,
   closestCenter,
@@ -53,7 +53,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { PageNav } from "@/components/page-nav";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import type { Geo, Brand, GeoBrandRanking } from "@shared/schema";
+import type { Geo, Brand, BrandList, GeoBrandRanking } from "@shared/schema";
 
 interface RankingWithBrand extends GeoBrandRanking {
   brand?: Brand;
@@ -143,8 +143,10 @@ export default function BrandRankings() {
   const { toast } = useToast();
   const [location] = useLocation();
   const [selectedGeoId, setSelectedGeoId] = useState<string | null>(null);
+  const [selectedListId, setSelectedListId] = useState<string | null>(null);
   const [isGeoDialogOpen, setIsGeoDialogOpen] = useState(false);
   const [isBrandDialogOpen, setIsBrandDialogOpen] = useState(false);
+  const [isListDialogOpen, setIsListDialogOpen] = useState(false);
   const [editingGeo, setEditingGeo] = useState<Geo | null>(null);
   const [editingBrand, setEditingBrand] = useState<Brand | null>(null);
   const [editingRankings, setEditingRankings] = useState<Map<number, RankingWithBrand>>(new Map());
@@ -174,13 +176,20 @@ export default function BrandRankings() {
     queryKey: ["/api/brands"],
   });
 
-  // Fetch rankings for selected GEO
-  const { data: rankings = [], isLoading: isLoadingRankings } = useQuery<GeoBrandRanking[]>({
-    queryKey: ["/api/geos", selectedGeoId, "rankings"],
+  // Fetch brand lists for selected GEO
+  const { data: brandLists = [], isLoading: isLoadingLists } = useQuery<BrandList[]>({
+    queryKey: ["/api/geos", selectedGeoId, "brand-lists"],
     enabled: !!selectedGeoId,
   });
 
+  // Fetch rankings for selected brand list
+  const { data: rankings = [], isLoading: isLoadingRankings } = useQuery<GeoBrandRanking[]>({
+    queryKey: ["/api/brand-lists", selectedListId, "rankings"],
+    enabled: !!selectedListId,
+  });
+
   const selectedGeo = geos.find((g) => g.id === selectedGeoId);
+  const selectedList = brandLists.find((l) => l.id === selectedListId);
 
   // Auto-select GEO from URL parameter (only when no GEO is currently selected)
   useEffect(() => {
@@ -196,6 +205,20 @@ export default function BrandRankings() {
       }
     }
   }, [location, geos, selectedGeoId]);
+
+  // Auto-select first brand list when GEO changes
+  useEffect(() => {
+    if (selectedGeoId && brandLists.length > 0 && !selectedListId) {
+      // Auto-select the first brand list
+      setSelectedListId(brandLists[0].id);
+    } else if (selectedGeoId && brandLists.length === 0 && !isLoadingLists) {
+      // No brand lists for this GEO - clear selected list
+      setSelectedListId(null);
+    } else if (!selectedGeoId) {
+      // GEO was deselected - clear list selection
+      setSelectedListId(null);
+    }
+  }, [selectedGeoId, brandLists, selectedListId, isLoadingLists]);
 
   // Filter GEOs by search query
   const filteredGeos = geos.filter((geo) => {
@@ -229,20 +252,40 @@ export default function BrandRankings() {
     }))
     .sort((a, b) => (a.brand?.name || "").localeCompare(b.brand?.name || ""));
 
-  // Create GEO mutation
+  // Create GEO mutation with default brand list
   const createGeoMutation = useMutation({
     mutationFn: async (data: { name: string; code: string; sortOrder?: number }) => {
       const res = await apiRequest("POST", "/api/geos", data);
       return await res.json();
     },
-    onSuccess: (newGeo: Geo) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/geos"] });
-      setSelectedGeoId(newGeo.id);
-      setIsGeoDialogOpen(false);
-      toast({
-        title: "GEO Added",
-        description: `${newGeo.name} has been created.`,
-      });
+    onSuccess: async (newGeo: Geo) => {
+      // Create default brand list for the new GEO
+      try {
+        const listRes = await apiRequest("POST", `/api/geos/${newGeo.id}/brand-lists`, {
+          name: "Default",
+          sortOrder: 0,
+        });
+        const newList = await listRes.json();
+        
+        queryClient.invalidateQueries({ queryKey: ["/api/geos"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/geos", newGeo.id, "brand-lists"] });
+        
+        setSelectedGeoId(newGeo.id);
+        setSelectedListId(newList.id);
+        setIsGeoDialogOpen(false);
+        
+        toast({
+          title: "GEO Added",
+          description: `${newGeo.name} has been created with a default brand list.`,
+        });
+      } catch (error) {
+        console.error("Failed to create default brand list:", error);
+        toast({
+          title: "Warning",
+          description: "GEO created but failed to create default brand list.",
+          variant: "destructive",
+        });
+      }
     },
     onError: (error: any) => {
       toast({
@@ -286,6 +329,7 @@ export default function BrandRankings() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/geos"] });
       setSelectedGeoId(null);
+      setSelectedListId(null);
       toast({
         title: "GEO Deleted",
         description: "GEO has been deleted successfully.",
@@ -295,6 +339,60 @@ export default function BrandRankings() {
       toast({
         title: "Error",
         description: error.message || "Failed to delete GEO",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Create Brand List mutation
+  const createBrandListMutation = useMutation({
+    mutationFn: async (data: { name: string }) => {
+      if (!selectedGeoId) throw new Error("No GEO selected");
+      const res = await apiRequest("POST", `/api/geos/${selectedGeoId}/brand-lists`, {
+        ...data,
+        sortOrder: brandLists.length,
+      });
+      return await res.json();
+    },
+    onSuccess: (newList: BrandList) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/geos", selectedGeoId, "brand-lists"] });
+      setSelectedListId(newList.id);
+      setIsListDialogOpen(false);
+      toast({
+        title: "Brand List Created",
+        description: `${newList.name} has been created.`,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create brand list",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Delete Brand List mutation
+  const deleteBrandListMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await apiRequest("DELETE", `/api/brand-lists/${id}`);
+      return await res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/geos", selectedGeoId, "brand-lists"] });
+      // If we deleted the selected list, clear selection
+      if (selectedListId === deleteBrandListMutation.variables) {
+        setSelectedListId(null);
+      }
+      toast({
+        title: "Brand List Deleted",
+        description: "Brand list has been deleted successfully.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete brand list",
         variant: "destructive",
       });
     },
@@ -376,7 +474,7 @@ export default function BrandRankings() {
       return await res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/geos", selectedGeoId, "rankings"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/brand-lists", selectedListId, "rankings"] });
       toast({
         title: "Brand Removed",
         description: "Brand has been removed from rankings.",
@@ -412,18 +510,20 @@ export default function BrandRankings() {
   // Add other brand (non-featured) mutation
   const addOtherBrandMutation = useMutation({
     mutationFn: async (brandId: string) => {
+      if (!selectedGeoId || !selectedListId) throw new Error("No GEO or list selected");
       const res = await apiRequest("POST", `/api/geos/${selectedGeoId}/rankings`, {
         brandId,
+        listId: selectedListId,
         position: null,
         timestamp: Date.now(),
       });
       return await res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/geos", selectedGeoId, "rankings"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/brand-lists", selectedListId, "rankings"] });
       toast({
         title: "Brand Added",
-        description: "Brand has been added to this GEO.",
+        description: "Brand has been added to this list.",
       });
     },
     onError: (error: any) => {
@@ -442,10 +542,10 @@ export default function BrandRankings() {
       return await res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/geos", selectedGeoId, "rankings"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/brand-lists", selectedListId, "rankings"] });
       toast({
         title: "Brand Removed",
-        description: "Brand has been removed from this GEO.",
+        description: "Brand has been removed from this list.",
       });
     },
     onError: (error: any) => {
@@ -466,7 +566,7 @@ export default function BrandRankings() {
       return await res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/geos", selectedGeoId, "rankings"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/brand-lists", selectedListId, "rankings"] });
       toast({
         title: "Brand Moved",
         description: "Brand moved to Other Brands section.",
@@ -501,7 +601,7 @@ export default function BrandRankings() {
       return await res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/geos", selectedGeoId, "rankings"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/brand-lists", selectedListId, "rankings"] });
       toast({
         title: "Brand Promoted",
         description: "Brand moved to Featured Brands.",
@@ -518,12 +618,15 @@ export default function BrandRankings() {
 
   // Bulk upsert rankings mutation
   const bulkUpsertRankingsMutation = useMutation({
-    mutationFn: async ({ geoId, rankings }: { geoId: string; rankings: any[] }) => {
-      const res = await apiRequest("POST", `/api/geos/${geoId}/rankings/bulk`, { rankings });
+    mutationFn: async ({ listId, geoId, rankings }: { listId: string; geoId: string; rankings: any[] }) => {
+      const res = await apiRequest("POST", `/api/brand-lists/${listId}/rankings/bulk`, { 
+        rankings,
+        geoId,
+      });
       return await res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/geos", selectedGeoId, "rankings"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/brand-lists", selectedListId, "rankings"] });
       setIsEditMode(false);
       setEditingRankings(new Map());
       toast({
@@ -551,6 +654,7 @@ export default function BrandRankings() {
         editMap.set(i, {
           id: `temp-${i}`,
           geoId: selectedGeoId!,
+          listId: selectedListId!,
           brandId: "",
           position: i,
           affiliateLink: null,
@@ -568,7 +672,7 @@ export default function BrandRankings() {
   };
 
   const handleSaveRankings = () => {
-    if (!selectedGeoId) return;
+    if (!selectedGeoId || !selectedListId) return;
 
     const rankingsToSave = Array.from(editingRankings.values())
       .filter((r) => r.brandId) // Only save rankings with a brand selected
@@ -580,6 +684,7 @@ export default function BrandRankings() {
       }));
     
     bulkUpsertRankingsMutation.mutate({
+      listId: selectedListId,
       geoId: selectedGeoId,
       rankings: rankingsToSave,
     });
@@ -726,317 +831,380 @@ export default function BrandRankings() {
               </div>
             ) : (
               <div className="p-8">
-                <Card>
-                  <div className="p-6">
-                    <div className="flex items-center justify-between mb-6">
-                      <div>
-                        <h2 className="text-lg font-semibold">Brand Rankings</h2>
-                        <p className="text-sm text-muted-foreground">
-                          Top 10 brands ranked by performance
-                        </p>
-                      </div>
-                      {!isEditMode ? (
-                        <div className="flex gap-2">
-                          <Button
-                            variant="outline"
-                            onClick={() => setIsBrandDialogOpen(true)}
-                            data-testid="button-manage-brands"
-                          >
-                            Manage Brands
-                          </Button>
-                          <Button 
-                            variant="outline" 
-                            onClick={() => {
-                              setBulkAddTarget("featured");
-                              setIsBulkAddDialogOpen(true);
-                            }} 
-                            data-testid="button-bulk-add-brands"
-                          >
-                            <Plus className="h-4 w-4 mr-2" />
-                            Bulk Add
-                          </Button>
-                          <Button onClick={handleStartEdit} data-testid="button-edit-rankings">
-                            <Edit2 className="h-4 w-4 mr-2" />
-                            Edit Rankings
-                          </Button>
-                        </div>
-                      ) : (
-                        <div className="flex gap-2">
-                          <Button
-                            variant="outline"
-                            onClick={handleCancelEdit}
-                            data-testid="button-cancel-edit"
-                          >
-                            <X className="h-4 w-4 mr-2" />
-                            Cancel
-                          </Button>
-                          <Button onClick={handleSaveRankings} data-testid="button-save-rankings">
-                            <Save className="h-4 w-4 mr-2" />
-                            Save Rankings
-                          </Button>
-                        </div>
+                {/* Brand List Selector */}
+                {brandLists.length === 0 && !isLoadingLists ? (
+                  <Card className="mb-6">
+                    <div className="p-6 text-center">
+                      <h3 className="text-lg font-semibold mb-2">No Brand Lists</h3>
+                      <p className="text-sm text-muted-foreground mb-4">
+                        Create your first brand list for {selectedGeo?.name} to start managing rankings.
+                      </p>
+                      <Button onClick={() => setIsListDialogOpen(true)} data-testid="button-create-first-list">
+                        <List className="h-4 w-4 mr-2" />
+                        Create Brand List
+                      </Button>
+                    </div>
+                  </Card>
+                ) : (
+                  <div className="mb-6 flex items-center gap-4">
+                    <div className="flex-1">
+                      <Label className="text-xs text-muted-foreground mb-2 block">Brand List</Label>
+                      <Select value={selectedListId || ""} onValueChange={setSelectedListId}>
+                        <SelectTrigger className="w-full max-w-xs" data-testid="select-brand-list">
+                          <SelectValue placeholder="Select brand list..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {brandLists.map((list) => (
+                            <SelectItem key={list.id} value={list.id} data-testid={`select-list-${list.id}`}>
+                              {list.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="flex gap-2 mt-6">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setIsListDialogOpen(true)}
+                        data-testid="button-add-list"
+                      >
+                        <Plus className="h-4 w-4 mr-2" />
+                        New List
+                      </Button>
+                      {selectedListId && brandLists.length > 1 && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            if (confirm(`Delete ${selectedList?.name}? All rankings in this list will be removed.`)) {
+                              deleteBrandListMutation.mutate(selectedListId);
+                            }
+                          }}
+                          data-testid="button-delete-list"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       )}
                     </div>
+                  </div>
+                )}
 
-                    {isLoadingRankings || isLoadingBrands ? (
-                      <div className="text-sm text-muted-foreground p-4">Loading rankings...</div>
-                    ) : (
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead className="w-20">Position</TableHead>
-                            <TableHead>Brand</TableHead>
-                            <TableHead>Affiliate Link</TableHead>
-                            {!isEditMode && <TableHead className="w-20">Actions</TableHead>}
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
+                {selectedListId && (
+                  <>
+                    <Card>
+                      <div className="p-6">
+                        <div className="flex items-center justify-between mb-6">
+                          <div>
+                            <h2 className="text-lg font-semibold">Brand Rankings</h2>
+                            <p className="text-sm text-muted-foreground">
+                              Top 10 brands ranked by performance
+                            </p>
+                          </div>
                           {!isEditMode ? (
-                            featuredRankings.length === 0 ? (
-                              <TableRow>
-                                <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
-                                  No rankings yet. Click "Edit Rankings" to add brands.
-                                </TableCell>
-                              </TableRow>
-                            ) : (
-                              featuredRankings.map((ranking) => (
-                                <TableRow key={ranking.id} data-testid={`ranking-row-${ranking.position}`}>
-                                  <TableCell className="font-semibold" data-testid={`cell-position-${ranking.position}`}>#{ranking.position}</TableCell>
-                                  <TableCell data-testid={`cell-brand-${ranking.position}`}>{ranking.brand?.name || "Unknown Brand"}</TableCell>
-                                  <TableCell className="text-sm text-muted-foreground truncate max-w-xs" data-testid={`cell-affiliate-link-${ranking.position}`}>
-                                    {ranking.affiliateLink ? (
-                                      <a href={ranking.affiliateLink} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
-                                        {ranking.affiliateLink}
-                                      </a>
-                                    ) : "-"}
-                                  </TableCell>
-                                  <TableCell data-testid={`cell-actions-${ranking.position}`}>
-                                    <div className="flex gap-1">
-                                      <Button
-                                        size="icon"
-                                        variant="ghost"
-                                        onClick={() => moveToOtherBrandsMutation.mutate(ranking.id)}
-                                        data-testid={`button-move-to-other-${ranking.position}`}
-                                        title="Move to Other Brands"
-                                      >
-                                        <ArrowDown className="h-4 w-4" />
-                                      </Button>
-                                      <Button
-                                        size="icon"
-                                        variant="ghost"
-                                        onClick={() => {
-                                          if (confirm(`Remove ${ranking.brand?.name || 'this brand'} from this GEO completely?`)) {
-                                            deleteRankingMutation.mutate(ranking.id);
-                                          }
-                                        }}
-                                        data-testid={`button-delete-ranking-${ranking.position}`}
-                                        title="Remove from GEO"
-                                      >
-                                        <Trash2 className="h-4 w-4" />
-                                      </Button>
-                                    </div>
-                                  </TableCell>
-                                </TableRow>
-                              ))
-                            )
-                          ) : (
-                            Array.from({ length: 10 }, (_, i) => i + 1).map((position) => {
-                              const ranking = editingRankings.get(position);
-                              return (
-                                <TableRow key={position} data-testid={`edit-row-${position}`}>
-                                  <TableCell className="font-semibold" data-testid={`cell-edit-position-${position}`}>#{position}</TableCell>
-                                  <TableCell data-testid={`cell-edit-brand-${position}`}>
-                                    <Select
-                                      value={ranking?.brandId || ""}
-                                      onValueChange={(value) =>
-                                        updateEditingRanking(position, "brandId", value)
-                                      }
-                                    >
-                                      <SelectTrigger data-testid={`select-brand-trigger-${position}`}>
-                                        <SelectValue placeholder="Select brand..." />
-                                      </SelectTrigger>
-                                      <SelectContent data-testid={`select-brand-content-${position}`}>
-                                        <div className="p-2 border-b">
-                                          <Input
-                                            placeholder="Search brands..."
-                                            value={editBrandSearchQuery}
-                                            onChange={(e) => setEditBrandSearchQuery(e.target.value)}
-                                            className="h-8"
-                                            data-testid={`input-brand-search-${position}`}
-                                            onClick={(e) => e.stopPropagation()}
-                                            onKeyDown={(e) => e.stopPropagation()}
-                                          />
-                                        </div>
-                                        <div className="max-h-[300px] overflow-y-auto">
-                                          {brands
-                                            .filter((brand) => 
-                                              brand.name.toLowerCase().includes(editBrandSearchQuery.toLowerCase())
-                                            )
-                                            .map((brand) => (
-                                              <SelectItem key={brand.id} value={brand.id} data-testid={`select-brand-item-${brand.id}-${position}`}>
-                                                {brand.name}
-                                              </SelectItem>
-                                            ))}
-                                          {brands.filter((brand) => 
-                                            brand.name.toLowerCase().includes(editBrandSearchQuery.toLowerCase())
-                                          ).length === 0 && (
-                                            <div className="p-2 text-sm text-muted-foreground text-center">
-                                              No brands found
-                                            </div>
-                                          )}
-                                        </div>
-                                      </SelectContent>
-                                    </Select>
-                                  </TableCell>
-                                  <TableCell data-testid={`cell-edit-affiliate-link-${position}`}>
-                                    <Input
-                                      type="url"
-                                      placeholder="https://example.com/affiliate-link"
-                                      value={ranking?.affiliateLink || ""}
-                                      onChange={(e) =>
-                                        updateEditingRanking(position, "affiliateLink", e.target.value)
-                                      }
-                                      data-testid={`input-edit-affiliate-link-${position}`}
-                                    />
-                                  </TableCell>
-                                </TableRow>
-                              );
-                            })
-                          )}
-                        </TableBody>
-                      </Table>
-                    )}
-                  </div>
-                </Card>
-
-                {/* Other Brands Section */}
-                <Card className="mt-6">
-                  <div className="p-6">
-                    <div className="flex items-center justify-between mb-6">
-                      <div>
-                        <h2 className="text-lg font-semibold">Other Brands</h2>
-                        <p className="text-sm text-muted-foreground">
-                          Additional brands for this GEO (not in top 10)
-                        </p>
-                      </div>
-                      <div className="flex gap-2">
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          onClick={() => {
-                            setBulkAddTarget("other");
-                            setIsBulkAddDialogOpen(true);
-                          }} 
-                          data-testid="button-bulk-add-other-brands"
-                        >
-                          <Plus className="h-4 w-4 mr-2" />
-                          Bulk Add
-                        </Button>
-                        <Dialog>
-                          <DialogTrigger asChild>
-                            <Button variant="outline" size="sm" data-testid="button-add-other-brand">
-                              <Plus className="h-4 w-4 mr-2" />
-                              Add Brand
-                            </Button>
-                          </DialogTrigger>
-                        <DialogContent data-testid="dialog-add-other-brand">
-                          <DialogHeader>
-                            <DialogTitle>Add Brand to GEO</DialogTitle>
-                            <DialogDescription>
-                              Select a brand to add to {selectedGeo?.name}. It will not be featured in the top 10 rankings.
-                            </DialogDescription>
-                          </DialogHeader>
-                          <div className="py-4">
-                            <Label htmlFor="brand-search">Search Brands</Label>
-                            <Input
-                              id="brand-search"
-                              placeholder="Type to search..."
-                              value={brandSearchQuery}
-                              onChange={(e) => setBrandSearchQuery(e.target.value)}
-                              className="mb-4"
-                              data-testid="input-brand-search-other"
-                            />
-                            <div className="max-h-[300px] overflow-y-auto space-y-2">
-                              {filteredBrands
-                                .filter((brand) => !otherBrands.some((r) => r.brandId === brand.id) && !featuredRankings.some((r) => r.brandId === brand.id))
-                                .map((brand) => (
-                                  <Button
-                                    key={brand.id}
-                                    variant="outline"
-                                    className="w-full justify-start"
-                                    onClick={() => {
-                                      addOtherBrandMutation.mutate(brand.id);
-                                      setBrandSearchQuery("");
-                                    }}
-                                    data-testid={`button-add-brand-${brand.id}`}
-                                  >
-                                    {brand.name}
-                                  </Button>
-                                ))}
-                            </div>
-                          </div>
-                        </DialogContent>
-                        </Dialog>
-                      </div>
-                    </div>
-
-                    {isLoadingRankings || isLoadingBrands ? (
-                      <div className="text-sm text-muted-foreground p-4">Loading brands...</div>
-                    ) : otherBrands.length === 0 ? (
-                      <div className="text-center text-muted-foreground py-8 border rounded-lg">
-                        No other brands added yet.
-                      </div>
-                    ) : (
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                        {otherBrands.map((ranking) => (
-                          <div
-                            key={ranking.id}
-                            className="flex items-center justify-between p-3 border rounded-lg"
-                            data-testid={`other-brand-${ranking.brandId}`}
-                          >
-                            <div className="flex-1 min-w-0">
-                              <p className="font-medium truncate">{ranking.brand?.name || "Unknown"}</p>
-                              {ranking.affiliateLink && (
-                                <a
-                                  href={ranking.affiliateLink}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="text-xs text-primary hover:underline truncate block"
-                                >
-                                  {ranking.affiliateLink}
-                                </a>
-                              )}
-                            </div>
-                            <div className="flex gap-1">
+                            <div className="flex gap-2">
                               <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => promoteToFeaturedMutation.mutate(ranking.id)}
-                                data-testid={`button-promote-brand-${ranking.brandId}`}
-                                title="Promote to Featured Brands"
+                                variant="outline"
+                                onClick={() => setIsBrandDialogOpen(true)}
+                                data-testid="button-manage-brands"
                               >
-                                <ArrowUp className="h-4 w-4" />
+                                Manage Brands
                               </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
+                              <Button 
+                                variant="outline" 
                                 onClick={() => {
-                                  if (confirm(`Remove ${ranking.brand?.name || 'this brand'} from this GEO completely?`)) {
-                                    removeBrandMutation.mutate(ranking.id);
-                                  }
-                                }}
-                                data-testid={`button-remove-brand-${ranking.brandId}`}
-                                title="Remove from GEO"
+                                  setBulkAddTarget("featured");
+                                  setIsBulkAddDialogOpen(true);
+                                }} 
+                                data-testid="button-bulk-add-brands"
                               >
-                                <X className="h-4 w-4" />
+                                <Plus className="h-4 w-4 mr-2" />
+                                Bulk Add
+                              </Button>
+                              <Button onClick={handleStartEdit} data-testid="button-edit-rankings">
+                                <Edit2 className="h-4 w-4 mr-2" />
+                                Edit Rankings
                               </Button>
                             </div>
-                          </div>
-                        ))}
+                          ) : (
+                            <div className="flex gap-2">
+                              <Button
+                                variant="outline"
+                                onClick={handleCancelEdit}
+                                data-testid="button-cancel-edit"
+                              >
+                                <X className="h-4 w-4 mr-2" />
+                                Cancel
+                              </Button>
+                              <Button onClick={handleSaveRankings} data-testid="button-save-rankings">
+                                <Save className="h-4 w-4 mr-2" />
+                                Save Rankings
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+
+                        {isLoadingRankings || isLoadingBrands ? (
+                          <div className="text-sm text-muted-foreground p-4">Loading rankings...</div>
+                        ) : (
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead className="w-20">Position</TableHead>
+                                <TableHead>Brand</TableHead>
+                                <TableHead>Affiliate Link</TableHead>
+                                {!isEditMode && <TableHead className="w-20">Actions</TableHead>}
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {!isEditMode ? (
+                                featuredRankings.length === 0 ? (
+                                  <TableRow>
+                                    <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
+                                      No rankings yet. Click "Edit Rankings" to add brands.
+                                    </TableCell>
+                                  </TableRow>
+                                ) : (
+                                  featuredRankings.map((ranking) => (
+                                    <TableRow key={ranking.id} data-testid={`ranking-row-${ranking.position}`}>
+                                      <TableCell className="font-semibold" data-testid={`cell-position-${ranking.position}`}>#{ranking.position}</TableCell>
+                                      <TableCell data-testid={`cell-brand-${ranking.position}`}>{ranking.brand?.name || "Unknown Brand"}</TableCell>
+                                      <TableCell className="text-sm text-muted-foreground truncate max-w-xs" data-testid={`cell-affiliate-link-${ranking.position}`}>
+                                        {ranking.affiliateLink ? (
+                                          <a href={ranking.affiliateLink} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+                                            {ranking.affiliateLink}
+                                          </a>
+                                        ) : "-"}
+                                      </TableCell>
+                                      <TableCell data-testid={`cell-actions-${ranking.position}`}>
+                                        <div className="flex gap-1">
+                                          <Button
+                                            size="icon"
+                                            variant="ghost"
+                                            onClick={() => moveToOtherBrandsMutation.mutate(ranking.id)}
+                                            data-testid={`button-move-to-other-${ranking.position}`}
+                                            title="Move to Other Brands"
+                                          >
+                                            <ArrowDown className="h-4 w-4" />
+                                          </Button>
+                                          <Button
+                                            size="icon"
+                                            variant="ghost"
+                                            onClick={() => {
+                                              if (confirm(`Remove ${ranking.brand?.name || 'this brand'} from this list completely?`)) {
+                                                deleteRankingMutation.mutate(ranking.id);
+                                              }
+                                            }}
+                                            data-testid={`button-delete-ranking-${ranking.position}`}
+                                            title="Remove from List"
+                                          >
+                                            <Trash2 className="h-4 w-4" />
+                                          </Button>
+                                        </div>
+                                      </TableCell>
+                                    </TableRow>
+                                  ))
+                                )
+                              ) : (
+                                Array.from({ length: 10 }, (_, i) => i + 1).map((position) => {
+                                  const ranking = editingRankings.get(position);
+                                  return (
+                                    <TableRow key={position} data-testid={`edit-row-${position}`}>
+                                      <TableCell className="font-semibold" data-testid={`cell-edit-position-${position}`}>#{position}</TableCell>
+                                      <TableCell data-testid={`cell-edit-brand-${position}`}>
+                                        <Select
+                                          value={ranking?.brandId || ""}
+                                          onValueChange={(value) =>
+                                            updateEditingRanking(position, "brandId", value)
+                                          }
+                                        >
+                                          <SelectTrigger data-testid={`select-brand-trigger-${position}`}>
+                                            <SelectValue placeholder="Select brand..." />
+                                          </SelectTrigger>
+                                          <SelectContent data-testid={`select-brand-content-${position}`}>
+                                            <div className="p-2 border-b">
+                                              <Input
+                                                placeholder="Search brands..."
+                                                value={editBrandSearchQuery}
+                                                onChange={(e) => setEditBrandSearchQuery(e.target.value)}
+                                                className="h-8"
+                                                data-testid={`input-brand-search-${position}`}
+                                                onClick={(e) => e.stopPropagation()}
+                                                onKeyDown={(e) => e.stopPropagation()}
+                                              />
+                                            </div>
+                                            <div className="max-h-[300px] overflow-y-auto">
+                                              {brands
+                                                .filter((brand) => 
+                                                  brand.name.toLowerCase().includes(editBrandSearchQuery.toLowerCase())
+                                                )
+                                                .map((brand) => (
+                                                  <SelectItem key={brand.id} value={brand.id} data-testid={`select-brand-item-${brand.id}-${position}`}>
+                                                    {brand.name}
+                                                  </SelectItem>
+                                                ))}
+                                              {brands.filter((brand) => 
+                                                brand.name.toLowerCase().includes(editBrandSearchQuery.toLowerCase())
+                                              ).length === 0 && (
+                                                <div className="p-2 text-sm text-muted-foreground text-center">
+                                                  No brands found
+                                                </div>
+                                              )}
+                                            </div>
+                                          </SelectContent>
+                                        </Select>
+                                      </TableCell>
+                                      <TableCell data-testid={`cell-edit-affiliate-link-${position}`}>
+                                        <Input
+                                          type="url"
+                                          placeholder="https://example.com/affiliate-link"
+                                          value={ranking?.affiliateLink || ""}
+                                          onChange={(e) =>
+                                            updateEditingRanking(position, "affiliateLink", e.target.value)
+                                          }
+                                          data-testid={`input-edit-affiliate-link-${position}`}
+                                        />
+                                      </TableCell>
+                                    </TableRow>
+                                  );
+                                })
+                              )}
+                            </TableBody>
+                          </Table>
+                        )}
                       </div>
-                    )}
-                  </div>
-                </Card>
+                    </Card>
+
+                    {/* Other Brands Section */}
+                    <Card className="mt-6">
+                      <div className="p-6">
+                        <div className="flex items-center justify-between mb-6">
+                          <div>
+                            <h2 className="text-lg font-semibold">Other Brands</h2>
+                            <p className="text-sm text-muted-foreground">
+                              Additional brands for this list (not in top 10)
+                            </p>
+                          </div>
+                          <div className="flex gap-2">
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              onClick={() => {
+                                setBulkAddTarget("other");
+                                setIsBulkAddDialogOpen(true);
+                              }} 
+                              data-testid="button-bulk-add-other-brands"
+                            >
+                              <Plus className="h-4 w-4 mr-2" />
+                              Bulk Add
+                            </Button>
+                            <Dialog>
+                              <DialogTrigger asChild>
+                                <Button variant="outline" size="sm" data-testid="button-add-other-brand">
+                                  <Plus className="h-4 w-4 mr-2" />
+                                  Add Brand
+                                </Button>
+                              </DialogTrigger>
+                            <DialogContent data-testid="dialog-add-other-brand">
+                              <DialogHeader>
+                                <DialogTitle>Add Brand to List</DialogTitle>
+                                <DialogDescription>
+                                  Select a brand to add to {selectedList?.name}. It will not be featured in the top 10 rankings.
+                                </DialogDescription>
+                              </DialogHeader>
+                              <div className="py-4">
+                                <Label htmlFor="brand-search">Search Brands</Label>
+                                <Input
+                                  id="brand-search"
+                                  placeholder="Type to search..."
+                                  value={brandSearchQuery}
+                                  onChange={(e) => setBrandSearchQuery(e.target.value)}
+                                  className="mb-4"
+                                  data-testid="input-brand-search-other"
+                                />
+                                <div className="max-h-[300px] overflow-y-auto space-y-2">
+                                  {filteredBrands
+                                    .filter((brand) => !otherBrands.some((r) => r.brandId === brand.id) && !featuredRankings.some((r) => r.brandId === brand.id))
+                                    .map((brand) => (
+                                      <Button
+                                        key={brand.id}
+                                        variant="outline"
+                                        className="w-full justify-start"
+                                        onClick={() => {
+                                          addOtherBrandMutation.mutate(brand.id);
+                                          setBrandSearchQuery("");
+                                        }}
+                                        data-testid={`button-add-brand-${brand.id}`}
+                                      >
+                                        {brand.name}
+                                      </Button>
+                                    ))}
+                                </div>
+                              </div>
+                            </DialogContent>
+                            </Dialog>
+                          </div>
+                        </div>
+
+                        {isLoadingRankings || isLoadingBrands ? (
+                          <div className="text-sm text-muted-foreground p-4">Loading brands...</div>
+                        ) : otherBrands.length === 0 ? (
+                          <div className="text-center text-muted-foreground py-8 border rounded-lg">
+                            No other brands added yet.
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                            {otherBrands.map((ranking) => (
+                              <div
+                                key={ranking.id}
+                                className="flex items-center justify-between p-3 border rounded-lg"
+                                data-testid={`other-brand-${ranking.brandId}`}
+                              >
+                                <div className="flex-1 min-w-0">
+                                  <p className="font-medium truncate">{ranking.brand?.name || "Unknown"}</p>
+                                  {ranking.affiliateLink && (
+                                    <a
+                                      href={ranking.affiliateLink}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-xs text-primary hover:underline truncate block"
+                                    >
+                                      {ranking.affiliateLink}
+                                    </a>
+                                  )}
+                                </div>
+                                <div className="flex gap-1">
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => promoteToFeaturedMutation.mutate(ranking.id)}
+                                    data-testid={`button-promote-brand-${ranking.brandId}`}
+                                    title="Promote to Featured Brands"
+                                  >
+                                    <ArrowUp className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => {
+                                      if (confirm(`Remove ${ranking.brand?.name || 'this brand'} from this list completely?`)) {
+                                        removeBrandMutation.mutate(ranking.id);
+                                      }
+                                    }}
+                                    data-testid={`button-remove-brand-${ranking.brandId}`}
+                                    title="Remove from List"
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </Card>
+                  </>
+                )}
               </div>
             )}
           </main>
@@ -1054,8 +1222,8 @@ export default function BrandRankings() {
             </DialogTitle>
             <DialogDescription>
               {bulkAddTarget === "featured" 
-                ? `Paste a list of brand names (one per line or comma-separated) to add them to ${selectedGeo?.name}. Brands will fill empty positions in the top 10 rankings.`
-                : `Paste a list of brand names (one per line or comma-separated) to add them to ${selectedGeo?.name}. Brands will be added to the "Other Brands" section (not featured in top 10).`}
+                ? `Paste a list of brand names (one per line or comma-separated) to add them to ${selectedList?.name}. Brands will fill empty positions in the top 10 rankings.`
+                : `Paste a list of brand names (one per line or comma-separated) to add them to ${selectedList?.name}. Brands will be added to the "Other Brands" section (not featured in top 10).`}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -1088,7 +1256,7 @@ export default function BrandRankings() {
             </Button>
             <Button
               onClick={async () => {
-                if (!selectedGeoId || !bulkBrandText.trim()) return;
+                if (!selectedGeoId || !selectedListId || !bulkBrandText.trim()) return;
 
                 // Parse brand names from textarea
                 const brandNames = bulkBrandText
@@ -1162,6 +1330,7 @@ export default function BrandRankings() {
                     try {
                       await apiRequest("POST", `/api/geos/${selectedGeoId}/rankings`, {
                         brandId: brand.id,
+                        listId: selectedListId,
                         position: position,
                         timestamp: Date.now(),
                       });
@@ -1184,6 +1353,7 @@ export default function BrandRankings() {
                     try {
                       await apiRequest("POST", `/api/geos/${selectedGeoId}/rankings`, {
                         brandId: brand.id,
+                        listId: selectedListId,
                         position: null,
                         timestamp: Date.now(),
                       });
@@ -1195,7 +1365,7 @@ export default function BrandRankings() {
                 }
 
                 // Refresh the rankings
-                queryClient.invalidateQueries({ queryKey: ["/api/geos", selectedGeoId, "rankings"] });
+                queryClient.invalidateQueries({ queryKey: ["/api/brand-lists", selectedListId, "rankings"] });
 
                 // Refresh brands list if new brands were created
                 if (createdBrands.length > 0) {
@@ -1239,7 +1409,7 @@ export default function BrandRankings() {
             <DialogDescription>
               {editingGeo
                 ? "Update the geographic region details."
-                : "Add a new geographic region for brand rankings."}
+                : "Add a new geographic region for brand rankings. A default brand list will be created automatically."}
             </DialogDescription>
           </DialogHeader>
           <form
@@ -1296,6 +1466,54 @@ export default function BrandRankings() {
               </Button>
               <Button type="submit" data-testid="button-submit-geo">
                 {editingGeo ? "Update" : "Add"} GEO
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Brand List Dialog */}
+      <Dialog open={isListDialogOpen} onOpenChange={setIsListDialogOpen}>
+        <DialogContent data-testid="dialog-brand-list">
+          <DialogHeader>
+            <DialogTitle>Create Brand List</DialogTitle>
+            <DialogDescription>
+              Add a new brand list for {selectedGeo?.name}.
+            </DialogDescription>
+          </DialogHeader>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              const formData = new FormData(e.currentTarget);
+              const data = {
+                name: formData.get("name") as string,
+              };
+              createBrandListMutation.mutate(data);
+            }}
+          >
+            <div className="space-y-4 py-4">
+              <div>
+                <Label htmlFor="list-name">List Name</Label>
+                <Input
+                  id="list-name"
+                  name="name"
+                  placeholder="e.g., November 2024, Holiday Picks"
+                  required
+                  data-testid="input-list-name"
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsListDialogOpen(false)}
+                data-testid="button-cancel-list"
+              >
+                Cancel
+              </Button>
+              <Button type="submit" data-testid="button-submit-list">
+                Create List
               </Button>
             </DialogFooter>
           </form>
