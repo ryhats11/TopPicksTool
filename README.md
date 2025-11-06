@@ -16,7 +16,7 @@ A web-based application for managing unique tracking codes (Sub-IDs) across mult
 - Manage brand lists per geographic region (GEO)
 - Default lists: Casino, Sports, Crypto (auto-created per GEO)
 - Create custom brand lists as needed
-- Featured brands (positions 1-10) with affiliate links
+- Featured brands (unlimited positions) with affiliate links
 - Unlimited non-featured brands per list
 - Drag-and-drop reordering
 
