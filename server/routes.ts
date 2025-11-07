@@ -1241,7 +1241,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const { taskId } = req.params;
-      const { listId } = req.body;
+      const { listId, brandOrder } = req.body;
 
       if (!listId) {
         return res.status(400).json({ error: "listId is required" });
@@ -1265,18 +1265,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const brands = await storage.getBrands();
       const brandsById = new Map(brands.map((b: any) => [b.id, b]));
 
-      // Separate featured and non-featured brands
-      const featuredRankings = rankings
-        .filter((r: any) => r.position !== null)
-        .sort((a: any, b: any) => a.position! - b.position!);
+      // Separate featured brands
+      const featuredRankings = rankings.filter((r: any) => r.position !== null);
+      
+      // If brandOrder is provided, use it to reorder the featured brands
+      if (brandOrder && Array.isArray(brandOrder) && brandOrder.length > 0) {
+        // Create a map of brandId to ranking for quick lookup
+        const rankingsByBrandId = new Map(featuredRankings.map((r: any) => [r.brandId, r]));
+        
+        // Reorder according to brandOrder array
+        const reorderedRankings = brandOrder
+          .map((brandId: string) => rankingsByBrandId.get(brandId))
+          .filter((r: any) => r !== undefined);
+        
+        // Use reordered list
+        featuredRankings.length = 0;
+        featuredRankings.push(...reorderedRankings);
+      } else {
+        // Fall back to database position ordering
+        featuredRankings.sort((a: any, b: any) => a.position! - b.position!);
+      }
 
       // Validate that all featured brands have affiliate links
       const missingLinks = featuredRankings.filter((r: any) => !r.affiliateLink);
       if (missingLinks.length > 0) {
         const brandNames = missingLinks
-          .map((r: any) => {
+          .map((r: any, index: number) => {
             const brand = brandsById.get(r.brandId);
-            return brand ? `#${r.position} ${brand.name}` : `#${r.position}`;
+            // Use the index in the current featuredRankings array to show the position
+            const position = featuredRankings.indexOf(r) + 1;
+            return brand ? `#${position} ${brand.name}` : `#${position}`;
           })
           .join(", ");
         return res.status(400).json({ 
@@ -1376,7 +1394,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         commentText += '\n';
       }
       
-      featuredRankings.forEach((ranking: any) => {
+      featuredRankings.forEach((ranking: any, index: number) => {
         const brand = brandsById.get(ranking.brandId);
         if (brand && ranking.affiliateLink) {
           let affiliateLink = ranking.affiliateLink;
@@ -1386,7 +1404,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             affiliateLink = affiliateLink + subId.value;
           }
           
-          commentText += `${ranking.position}. **${brand.name}**\n`;
+          // Use index + 1 for position number (respects manual reordering)
+          commentText += `${index + 1}. **${brand.name}**\n`;
           commentText += `   ${affiliateLink}\n\n`;
         }
       });
