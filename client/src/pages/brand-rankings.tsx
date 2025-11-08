@@ -1604,14 +1604,24 @@ export default function BrandRankings() {
             onSubmit={(e) => {
               e.preventDefault();
               const formData = new FormData(e.currentTarget);
-              const data = {
-                name: formData.get("name") as string,
-                code: formData.get("code") as string,
-              };
-
+              
               if (editingGeo) {
+                const data = {
+                  name: formData.get("name") as string,
+                  code: formData.get("code") as string,
+                };
                 updateGeoMutation.mutate({ id: editingGeo.id, data });
               } else {
+                // Calculate max sortOrder to add new GEO at the bottom
+                const maxSortOrder = geos.length > 0 
+                  ? Math.max(...geos.map(g => g.sortOrder || 0))
+                  : -1;
+                
+                const data = {
+                  name: formData.get("name") as string,
+                  code: formData.get("code") as string,
+                  sortOrder: maxSortOrder + 1,
+                };
                 createGeoMutation.mutate(data);
               }
             }}
