@@ -729,15 +729,11 @@ export default function BrandRankings() {
   // Promote brand to featured (assign next available position)
   const promoteToFeaturedMutation = useMutation({
     mutationFn: async (rankingId: string) => {
-      // Find next available position in top 10
+      // Find next available position
       const occupiedPositions = new Set(featuredRankings.map((r) => r.position).filter((p) => p !== null));
       let nextPosition = 1;
-      while (occupiedPositions.has(nextPosition) && nextPosition <= 10) {
+      while (occupiedPositions.has(nextPosition)) {
         nextPosition++;
-      }
-      
-      if (nextPosition > 10) {
-        throw new Error("All top 10 positions are occupied. Remove a brand first.");
       }
 
       const res = await apiRequest("PUT", `/api/rankings/${rankingId}`, {
@@ -964,7 +960,7 @@ export default function BrandRankings() {
             <div className="flex flex-col h-full">
               <div className="p-6 border-b">
                 <h2 className="text-lg font-semibold">Brand Rankings</h2>
-                <p className="text-xs text-muted-foreground mt-1">Manage top 10 brands by GEO</p>
+                <p className="text-xs text-muted-foreground mt-1">Manage featured brands by GEO</p>
               </div>
 
               <div className="p-4 border-b">
@@ -1134,7 +1130,7 @@ export default function BrandRankings() {
                           <div>
                             <h2 className="text-lg font-semibold">Brand Rankings</h2>
                             <p className="text-sm text-muted-foreground">
-                              Top 10 brands ranked by performance
+                              Featured brands ranked by performance
                             </p>
                           </div>
                           {!isEditMode ? (
@@ -1302,7 +1298,7 @@ export default function BrandRankings() {
                           <div>
                             <h2 className="text-lg font-semibold">Other Brands</h2>
                             <p className="text-sm text-muted-foreground">
-                              Additional brands for this list (not in top 10)
+                              Additional brands for this list (not featured)
                             </p>
                           </div>
                           <div className="flex gap-2">
@@ -1329,7 +1325,7 @@ export default function BrandRankings() {
                               <DialogHeader>
                                 <DialogTitle>Add Brand to List</DialogTitle>
                                 <DialogDescription>
-                                  Select a brand to add to {selectedList?.name}. It will not be featured in the top 10 rankings.
+                                  Select a brand to add to {selectedList?.name}. It will not be featured in rankings.
                                 </DialogDescription>
                               </DialogHeader>
                               <div className="py-4">
@@ -1420,8 +1416,8 @@ export default function BrandRankings() {
             </DialogTitle>
             <DialogDescription>
               {bulkAddTarget === "featured" 
-                ? `Paste a list of brand names (one per line or comma-separated) to add them to ${selectedList?.name}. Brands will fill empty positions in the top 10 rankings.`
-                : `Paste a list of brand names (one per line or comma-separated) to add them to ${selectedList?.name}. Brands will be added to the "Other Brands" section (not featured in top 10).`}
+                ? `Paste a list of brand names (one per line or comma-separated) to add them to ${selectedList?.name}. Brands will fill empty positions in featured rankings.`
+                : `Paste a list of brand names (one per line or comma-separated) to add them to ${selectedList?.name}. Brands will be added to the "Other Brands" section (not featured).`}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -1515,35 +1511,29 @@ export default function BrandRankings() {
                 let addedCount = 0;
                 
                 if (bulkAddTarget === "featured") {
-                  // For featured: find empty positions and fill them
+                  // For featured: assign next available positions
                   const occupiedPositions = new Set(featuredRankings.map(r => r.position));
-                  const emptyPositions = Array.from({ length: 10 }, (_, i) => i + 1)
-                    .filter(pos => !occupiedPositions.has(pos));
+                  let nextPosition = 1;
                   
-                  const brandsToAdd = matchedBrands.slice(0, emptyPositions.length);
-                  
-                  for (let i = 0; i < brandsToAdd.length; i++) {
-                    const brand = brandsToAdd[i];
-                    const position = emptyPositions[i];
+                  for (const brand of matchedBrands) {
+                    // Find next available position
+                    while (occupiedPositions.has(nextPosition)) {
+                      nextPosition++;
+                    }
+                    
                     try {
                       await apiRequest("POST", `/api/geos/${selectedGeoId}/rankings`, {
                         brandId: brand.id,
                         listId: selectedListId,
-                        position: position,
+                        position: nextPosition,
                         timestamp: Date.now(),
                       });
+                      occupiedPositions.add(nextPosition);
                       addedCount++;
+                      nextPosition++;
                     } catch (error) {
                       console.error(`Failed to add ${brand.name}:`, error);
                     }
-                  }
-                  
-                  if (matchedBrands.length > emptyPositions.length) {
-                    toast({
-                      title: "Some Brands Skipped",
-                      description: `Only ${emptyPositions.length} positions available. ${matchedBrands.length - emptyPositions.length} brands were not added.`,
-                      variant: "destructive",
-                    });
                   }
                 } else {
                   // For other brands: add without position

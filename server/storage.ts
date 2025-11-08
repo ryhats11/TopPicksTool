@@ -36,7 +36,8 @@ export interface IStorage {
   createSubIdsBulk(subIdList: InsertSubId[]): Promise<SubId[]>;
   deleteSubId(id: string): Promise<void>;
   updateSubIdClickupTask(id: string, clickupTaskId: string | null, url?: string | null): Promise<SubId>;
-  markCommentPosted(id: string): Promise<SubId>;
+  markCommentPosted(id: string, commentId?: string): Promise<SubId>;
+  clearCommentPosted(id: string): Promise<SubId>;
   
   // GEO methods
   getGeos(): Promise<Geo[]>;
@@ -146,10 +147,35 @@ export class DbStorage implements IStorage {
     return updatedSubId;
   }
 
-  async markCommentPosted(id: string): Promise<SubId> {
+  async markCommentPosted(id: string, commentId?: string): Promise<SubId> {
+    const updateData: { commentPosted: boolean; clickupCommentId?: string } = { 
+      commentPosted: true 
+    };
+    
+    if (commentId) {
+      updateData.clickupCommentId = commentId;
+    }
+    
     const [updatedSubId] = await db
       .update(subIds)
-      .set({ commentPosted: true })
+      .set(updateData)
+      .where(eq(subIds.id, id))
+      .returning();
+    
+    if (!updatedSubId) {
+      throw new Error("Sub-ID not found");
+    }
+    
+    return updatedSubId;
+  }
+
+  async clearCommentPosted(id: string): Promise<SubId> {
+    const [updatedSubId] = await db
+      .update(subIds)
+      .set({ 
+        commentPosted: false,
+        clickupCommentId: null 
+      })
       .where(eq(subIds.id, id))
       .returning();
     

@@ -739,9 +739,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
               );
 
               if (postResponse.ok) {
+                const postResult = await postResponse.json();
                 console.log(`   ✅ Posted TOP PICKS LINEUP table to task ${subId.clickupTaskId}`);
-                // Mark comment as posted
-                await storage.markCommentPosted(subId.id);
+                // Mark comment as posted and save comment ID
+                await storage.markCommentPosted(subId.id, postResult.id);
                 posted.push({ subId: subId.value, taskId: subId.clickupTaskId });
               } else {
                 const errorData = await postResponse.text();
@@ -819,8 +820,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const result = await response.json();
       console.log(`   ✅ TOP PICKS LINEUP table posted successfully`);
 
-      // Mark comment as posted
-      await storage.markCommentPosted(req.params.id);
+      // Mark comment as posted and save comment ID
+      await storage.markCommentPosted(req.params.id, result.id);
 
       res.json({
         success: true,
@@ -829,6 +830,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Error posting ClickUp comment:", error);
       res.status(500).json({ error: error.message || "Failed to post comment to ClickUp" });
+    }
+  });
+
+  app.delete("/api/subids/:id/clickup/comment", async (req, res) => {
+    try {
+      const apiKey = process.env.CLICKUP_API_KEY;
+      
+      if (!apiKey) {
+        return res.status(500).json({ error: "ClickUp API key not configured" });
+      }
+
+      const subId = await storage.getSubIdById(req.params.id);
+      
+      if (!subId) {
+        return res.status(404).json({ error: "Sub-ID not found" });
+      }
+
+      if (!subId.clickupCommentId) {
+        return res.status(400).json({ error: "No comment ID found for this Sub-ID" });
+      }
+
+      console.log(`\n🗑️ Deleting ClickUp comment ${subId.clickupCommentId} for Sub-ID ${subId.value}...`);
+
+      const response = await fetch(
+        `https://api.clickup.com/api/v2/comment/${subId.clickupCommentId}`,
+        {
+          method: 'DELETE',
+          headers: {
+            'Authorization': apiKey,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.text();
+        console.error(`   ❌ ClickUp API error: ${response.statusText}`, errorData);
+        throw new Error(`ClickUp API error: ${response.statusText}`);
+      }
+
+      console.log(`   ✅ Comment deleted successfully`);
+
+      // Clear comment posted flag and comment ID
+      await storage.clearCommentPosted(req.params.id);
+
+      res.json({
+        success: true,
+        message: "Comment deleted successfully",
+      });
+    } catch (error: any) {
+      console.error("Error deleting ClickUp comment:", error);
+      res.status(500).json({ error: error.message || "Failed to delete comment from ClickUp" });
     }
   });
 
@@ -1188,7 +1241,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const { taskId } = req.params;
-      const { listId } = req.body;
+      const { listId, brandOrder } = req.body;
 
       if (!listId) {
         return res.status(400).json({ error: "listId is required" });
@@ -1212,18 +1265,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const brands = await storage.getBrands();
       const brandsById = new Map(brands.map((b: any) => [b.id, b]));
 
-      // Separate featured and non-featured brands
-      const featuredRankings = rankings
-        .filter((r: any) => r.position !== null)
-        .sort((a: any, b: any) => a.position! - b.position!);
+      // Separate featured brands
+      const featuredRankings = rankings.filter((r: any) => r.position !== null);
+      
+      // If brandOrder is provided, use it to reorder the featured brands
+      if (brandOrder && Array.isArray(brandOrder) && brandOrder.length > 0) {
+        // Create a map of brandId to ranking for quick lookup
+        const rankingsByBrandId = new Map(featuredRankings.map((r: any) => [r.brandId, r]));
+        
+        // Reorder according to brandOrder array
+        const reorderedRankings = brandOrder
+          .map((brandId: string) => rankingsByBrandId.get(brandId))
+          .filter((r: any) => r !== undefined);
+        
+        // Use reordered list
+        featuredRankings.length = 0;
+        featuredRankings.push(...reorderedRankings);
+      } else {
+        // Fall back to database position ordering
+        featuredRankings.sort((a: any, b: any) => a.position! - b.position!);
+      }
 
       // Validate that all featured brands have affiliate links
       const missingLinks = featuredRankings.filter((r: any) => !r.affiliateLink);
       if (missingLinks.length > 0) {
         const brandNames = missingLinks
-          .map((r: any) => {
+          .map((r: any, index: number) => {
             const brand = brandsById.get(r.brandId);
-            return brand ? `#${r.position} ${brand.name}` : `#${r.position}`;
+            // Use the index in the current featuredRankings array to show the position
+            const position = featuredRankings.indexOf(r) + 1;
+            return brand ? `#${position} ${brand.name}` : `#${position}`;
           })
           .join(", ");
         return res.status(400).json({ 
@@ -1323,7 +1394,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         commentText += '\n';
       }
       
-      featuredRankings.forEach((ranking: any) => {
+      featuredRankings.forEach((ranking: any, index: number) => {
         const brand = brandsById.get(ranking.brandId);
         if (brand && ranking.affiliateLink) {
           let affiliateLink = ranking.affiliateLink;
@@ -1333,7 +1404,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             affiliateLink = affiliateLink + subId.value;
           }
           
-          commentText += `${ranking.position}. **${brand.name}**\n`;
+          // Use index + 1 for position number (respects manual reordering)
+          commentText += `${index + 1}. **${brand.name}**\n`;
           commentText += `   ${affiliateLink}\n\n`;
         }
       });
@@ -2189,6 +2261,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             brandMatch: null,
             subIdExists: false,
             subIdValue: null,
+            subIdId: null,
+            commentPosted: false,
+            commentId: null,
           };
 
           // Check if Sub-ID already exists for this task
@@ -2197,6 +2272,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             result.subIdExists = true;
             result.subIdValue = existingSubId.value;
             result.websiteId = existingSubId.websiteId;
+            result.subIdId = existingSubId.id;
+            result.commentPosted = existingSubId.commentPosted || false;
+            result.commentId = existingSubId.clickupCommentId || null;
           }
 
           // Fetch ClickUp task to get custom fields and task data

@@ -15,6 +15,7 @@ export const subIds = pgTable("sub_ids", {
   value: text("value").notNull(),
   url: text("url"),
   clickupTaskId: text("clickup_task_id"),
+  clickupCommentId: text("clickup_comment_id"),
   commentPosted: boolean("comment_posted").notNull().default(false),
   timestamp: bigint("timestamp", { mode: "number" }).notNull(),
   isImmutable: boolean("is_immutable").notNull().default(false),
@@ -50,7 +51,7 @@ export const geoBrandRankings = pgTable("geo_brand_rankings", {
   geoId: varchar("geo_id").notNull().references(() => geos.id, { onDelete: "cascade" }),
   listId: varchar("list_id").notNull().references(() => brandLists.id, { onDelete: "cascade" }),
   brandId: varchar("brand_id").notNull().references(() => brands.id, { onDelete: "cascade" }),
-  position: integer("position"), // Nullable: null = not featured, 1-10 = featured ranking
+  position: integer("position"), // Nullable: null = not featured, 1+ = featured ranking position
   affiliateLink: text("affiliate_link"),
   sortOrder: integer("sort_order").notNull().default(0), // For custom ordering of non-featured brands
   timestamp: bigint("timestamp", { mode: "number" }).notNull(),
@@ -84,7 +85,7 @@ export const insertBrandListSchema = createInsertSchema(brandLists).omit({
 export const insertGeoBrandRankingSchema = createInsertSchema(geoBrandRankings).omit({
   id: true,
 }).extend({
-  position: z.number().int().min(1).max(10).nullable().optional(),
+  position: z.number().int().min(1).nullable().optional(),
 });
 
 export type InsertWebsite = z.infer<typeof insertWebsiteSchema>;

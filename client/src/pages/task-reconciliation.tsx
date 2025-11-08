@@ -10,7 +10,7 @@ import { PageNav } from "@/components/page-nav";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useQuery } from "@tanstack/react-query";
-import { Loader2, Search, CheckCircle2, XCircle, AlertCircle, Globe, GripVertical, Plus, AlertTriangle, Send, Save } from "lucide-react";
+import { Loader2, Search, CheckCircle2, XCircle, AlertCircle, Globe, GripVertical, Plus, AlertTriangle, Send, Save, Trash2 } from "lucide-react";
 import {
   DndContext,
   closestCenter,
@@ -47,6 +47,9 @@ interface ReconciliationResult {
   } | null;
   subIdExists: boolean;
   subIdValue: string | null;
+  subIdId: string | null;
+  commentPosted: boolean;
+  commentId: string | null;
   error?: string;
 }
 
@@ -135,6 +138,7 @@ export default function TaskReconciliation() {
   const [localBrands, setLocalBrands] = useState<RankingWithBrand[]>([]);
   const [creatingSubIds, setCreatingSubIds] = useState<Set<string>>(new Set());
   const [postingBrands, setPostingBrands] = useState<Set<string>>(new Set());
+  const [deletingComments, setDeletingComments] = useState<Set<string>>(new Set());
   const [manualBrandSelections, setManualBrandSelections] = useState<Record<string, { position: number | null; brandName: string; brandId: string }>>(() => {
     const saved = localStorage.getItem('topPicksManualBrandSelections');
     return saved ? JSON.parse(saved) : {};
@@ -147,6 +151,7 @@ export default function TaskReconciliation() {
     const saved = localStorage.getItem('topPicksManualBrandListSelections');
     return saved ? JSON.parse(saved) : {};
   });
+  const [manualBrandOrders, setManualBrandOrders] = useState<Record<string, string[]>>({});
 
   // Fetch all GEOs to get rankings for each
   const { data: allGeos = [] } = useQuery<Array<{ id: string; code: string; name: string }>>({
@@ -245,7 +250,18 @@ export default function TaskReconciliation() {
       setLocalBrands((items) => {
         const oldIndex = items.findIndex((item) => item.id === active.id);
         const newIndex = items.findIndex((item) => item.id === over.id);
-        return arrayMove(items, oldIndex, newIndex);
+        const newOrder = arrayMove(items, oldIndex, newIndex);
+        
+        // Save the manually reordered brand IDs for this list
+        if (selectedGeoForBrands) {
+          const brandIds = newOrder.map(item => item.brandId);
+          setManualBrandOrders(prev => ({
+            ...prev,
+            [selectedGeoForBrands.listId]: brandIds,
+          }));
+        }
+        
+        return newOrder;
       });
     }
   };
@@ -409,9 +425,9 @@ export default function TaskReconciliation() {
       return;
     }
 
-    // Filter rankings to only show those from the selected brand list
+    // Filter rankings to only show featured brands (position !== null) from the selected brand list
     const rankingsWithBrands: RankingWithBrand[] = rankings
-      .filter((ranking) => ranking.listId === selectedGeoForBrands.listId)
+      .filter((ranking) => ranking.listId === selectedGeoForBrands.listId && ranking.position !== null)
       .map((ranking) => ({
         ...ranking,
         brand: brands.find((b) => b.id === ranking.brandId),
@@ -532,8 +548,12 @@ export default function TaskReconciliation() {
     setPostingBrands(prev => new Set(prev).add(taskId));
 
     try {
+      // Check if there's a manually reordered brand list for this listId
+      const brandOrder = manualBrandOrders[listId];
+      
       const res = await apiRequest("POST", `/api/reconcile-tasks/${taskId}/post-brands`, {
         listId,
+        brandOrder, // Send the manually reordered brand IDs if available
       });
 
       await res.json();
@@ -550,6 +570,46 @@ export default function TaskReconciliation() {
       });
     } finally {
       setPostingBrands(prev => {
+        const next = new Set(prev);
+        next.delete(taskId);
+        return next;
+      });
+    }
+  };
+
+  const handleDeleteComment = async (taskId: string, subIdId: string) => {
+    setDeletingComments(prev => new Set(prev).add(taskId));
+
+    try {
+      const res = await apiRequest("DELETE", `/api/subids/${subIdId}/clickup/comment`);
+
+      await res.json();
+
+      // Update the results to reflect comment deletion
+      setResults(prevResults =>
+        prevResults.map(result =>
+          result.taskId === taskId
+            ? {
+                ...result,
+                commentPosted: false,
+                commentId: null,
+              }
+            : result
+        )
+      );
+
+      toast({
+        title: "Comment Deleted",
+        description: "ClickUp comment has been removed successfully.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Failed to Delete Comment",
+        description: error.message || "An error occurred.",
+        variant: "destructive",
+      });
+    } finally {
+      setDeletingComments(prev => {
         const next = new Set(prev);
         next.delete(taskId);
         return next;
@@ -838,6 +898,7 @@ export default function TaskReconciliation() {
                     <TableHead>Sub-ID Value</TableHead>
                     <TableHead>Create Sub-ID</TableHead>
                     <TableHead>Post Brands</TableHead>
+                    <TableHead>Delete Comment</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -1087,6 +1148,30 @@ export default function TaskReconciliation() {
                           }
                           return null;
                         })()}
+                      </TableCell>
+                      <TableCell data-testid={`cell-delete-comment-${index}`}>
+                        {/* Delete Comment Button */}
+                        {result.commentPosted && result.subIdId && (
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => handleDeleteComment(result.taskId, result.subIdId!)}
+                            disabled={deletingComments.has(result.taskId)}
+                            data-testid={`button-delete-comment-${index}`}
+                          >
+                            {deletingComments.has(result.taskId) ? (
+                              <>
+                                <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                                Deleting...
+                              </>
+                            ) : (
+                              <>
+                                <Trash2 className="h-3 w-3 mr-1" />
+                                Delete
+                              </>
+                            )}
+                          </Button>
+                        )}
                       </TableCell>
                     </TableRow>
                   ))}

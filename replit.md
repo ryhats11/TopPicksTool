@@ -8,12 +8,12 @@ A web-based application for managing unique tracking codes (Sub-IDs) across mult
 2. **Brand Rankings**: Maintains multiple brand lists per geographic region (GEO):
    - Each GEO automatically receives three default brand lists upon creation: "Casino", "Sports", and "Crypto"
    - Users can create additional brand lists, rename existing lists, or delete lists as needed
-   - **Featured Brands**: Top 10 ranked brands (positions 1-10) per list with affiliate link tracking
+   - **Featured Brands**: Unlimited ranked brands (positions 1+) per list with affiliate link tracking
    - **Other Brands**: Unlimited non-featured brands per list for organization and tracking
    - Drag-and-drop reordering for both featured brands (positions) and other brands (custom sortOrder)
 3. **Top Picks Tool**: Cross-references ClickUp task IDs against brand rankings and Sub-ID tracker to identify:
    - Website associations (matched from task names)
-   - Featured brand matches (positions 1-10) for selected GEO
+   - Featured brand matches for selected GEO
    - Existing Sub-IDs linked to task IDs
 
 ## User Preferences
@@ -52,7 +52,7 @@ Preferred communication style: Simple, everyday language.
 - Multi-dialog system for adding websites, GEOs, brands, and bulk importing Sub-IDs
 - Real-time duplicate detection across all Sub-IDs
 - CSV export functionality for Sub-ID data
-- Brand rankings editor with position management (1-10) and affiliate link tracking
+- Brand rankings editor with unlimited position management and affiliate link tracking
 - Responsive design with mobile-first breakpoints
 
 ### Backend Architecture
@@ -107,11 +107,11 @@ Preferred communication style: Simple, everyday language.
   - Foreign key to GEOs with cascade delete
 - **GeoBrandRankings Table**: Junction table linking brand lists to brands with rankings
   - Links to both GEO and BrandList (for efficient querying)
-  - Position (nullable): 1-10 for featured brands, null for non-featured brands
+  - Position (nullable): 1+ for featured brands, null for non-featured brands
   - Optional affiliate link, timestamp
   - Unique constraints on (listId, position) when position is not null, and (listId, brandId) to prevent duplicates
   - Foreign keys to GEOs, BrandLists, and Brands with cascade delete
-  - Supports both featured (top 10 ranked) and unlimited non-featured brands per list
+  - Supports unlimited featured (ranked) and non-featured brands per list
 - UUID-based primary keys generated via `gen_random_uuid()`
 - Immutability feature prevents deletion of websites with marked Sub-IDs
 
@@ -224,7 +224,7 @@ Preferred communication style: Simple, everyday language.
      - If Subniche contains "Crypto" or "Bitcoin" → selects Crypto brand list
      - If Subniche contains "Sports", "betting", or "bookmaker" → selects Sports brand list
      - Otherwise defaults to first brand list (typically Casino)
-   - Searches task name/description for featured brand names (top 10 for that task's specific brand list)
+   - Searches task name/description for featured brand names from that task's specific brand list
    - Checks if Sub-ID already exists for the task ID
 
 **Results Display**:
@@ -233,7 +233,7 @@ Preferred communication style: Simple, everyday language.
 - Manual GEO selector (compact 2-letter code display) for overriding auto-detected GEO
 - Brand list selector for choosing which list to use for brand matching
 - Website association (detected from "*Publisher" custom field or task name, cleaned to remove *pm- prefix)
-- Brand match showing position and name (if found in top 10 for that task's specific brand list)
+- Brand match showing position and name (if found in that task's specific brand list)
 - Sub-ID status (exists/not found)
 - Sub-ID value (if already created)
 - Error messages for ClickUp API failures
