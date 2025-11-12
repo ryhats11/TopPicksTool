@@ -1,8 +1,11 @@
-import { drizzle } from "drizzle-orm/neon-serverless";
-import { Pool, neonConfig } from "@neondatabase/serverless";
-import ws from "ws";
+import { drizzle } from "drizzle-orm/node-postgres";
+import pg from "pg";
 
-neonConfig.webSocketConstructor = ws;
+const { Pool } = pg;
 
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false }, // Railway's public proxy requires SSL; OK with private too
+});
+
 export const db = drizzle(pool);
