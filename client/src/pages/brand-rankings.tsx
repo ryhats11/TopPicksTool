@@ -834,7 +834,16 @@ export default function BrandRankings() {
 
   const handleStartEdit = () => {
     const editMap = new Map<number, RankingWithBrand>();
-    for (let i = 1; i <= 10; i++) {
+    
+    // Find the highest position among existing featured brands
+    const maxPosition = featuredRankings.length > 0
+      ? Math.max(...featuredRankings.map(r => r.position || 0))
+      : 0;
+    
+    // Create editing slots for all existing positions plus 5 extra empty slots
+    const totalSlots = Math.max(10, maxPosition + 5);
+    
+    for (let i = 1; i <= totalSlots; i++) {
       const existing = featuredRankings.find((r) => r.position === i);
       if (existing) {
         editMap.set(i, existing);
@@ -1222,7 +1231,9 @@ export default function BrandRankings() {
                                   </DndContext>
                                 )
                               ) : (
-                                Array.from({ length: 10 }, (_, i) => i + 1).map((position) => {
+                                Array.from(editingRankings.keys())
+                                  .sort((a, b) => a - b)
+                                  .map((position) => {
                                   const ranking = editingRankings.get(position);
                                   return (
                                     <TableRow key={position} data-testid={`edit-row-${position}`}>
